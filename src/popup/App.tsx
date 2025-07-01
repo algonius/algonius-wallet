@@ -79,9 +79,15 @@ const App: React.FC = () => {
 
   // 监听状态更新消息
   useEffect(() => {
-    const handleMessage = (message: any) => {
-      if (message.type === 'mcpHostStatusUpdate' && message.status) {
-        setStatus(message.status);
+    const handleMessage = (message: unknown) => {
+      if (
+        typeof message === "object" &&
+        message !== null &&
+        "type" in message &&
+        (message as { type?: unknown }).type === "mcpHostStatusUpdate" &&
+        "status" in message
+      ) {
+        setStatus((message as { status: McpHostStatus }).status);
       }
     };
 

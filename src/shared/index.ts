@@ -13,13 +13,13 @@ export enum McpErrorCode {
 export interface McpError {
   code: McpErrorCode;
   message: string;
-  data?: any;
+  data?: unknown;
 }
 
 export function createMcpError(
   code: McpErrorCode,
   message: string,
-  data?: any
+  data?: unknown
 ): McpError {
   return {
     code,

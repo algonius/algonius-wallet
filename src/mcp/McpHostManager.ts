@@ -22,7 +22,7 @@ export interface RpcRequest {
   /**
    * Parameters for the method
    */
-  params?: any;
+  params?: unknown;
 }
 
 /**
@@ -37,7 +37,7 @@ export interface RpcResponse {
   /**
    * Result of the method call (if successful)
    */
-  result?: any;
+  result?: unknown;
 
   /**
    * Error information (if the call failed)
@@ -45,7 +45,7 @@ export interface RpcResponse {
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
 }
 
@@ -106,9 +106,9 @@ export class McpHostManager {
   private pendingRequests = new Map<
     string,
     {
-      resolve: (value: any) => void;
-      reject: (reason?: any) => void;
-      timeoutId: any;
+      resolve: (value: unknown) => void;
+      reject: (reason?: unknown) => void;
+      timeoutId: ReturnType<typeof setTimeout>;
     }
   >();
   private readonly RPC_TIMEOUT_MS = 5000; // 5 seconds default timeout for RPC requests
@@ -256,7 +256,13 @@ export class McpHostManager {
       });
 
       // Check if init was successful
-      if (response && response.result && response.result.status === 'initialized') {
+      if (
+        response &&
+        typeof response.result === "object" &&
+        response.result !== null &&
+        "status" in response.result &&
+        (response.result as { status?: unknown }).status === "initialized"
+      ) {
         console.log('MCP Host initialized successfully');
         // Set the start time when the host is successfully initialized
         this.updateStatus({ startTime: Date.now() });
@@ -291,7 +297,13 @@ export class McpHostManager {
       );
 
       // Check if shutdown was successful
-      if (response && response.result && response.result.status === 'shutting_down') {
+      if (
+        response &&
+        typeof response.result === "object" &&
+        response.result !== null &&
+        "status" in response.result &&
+        (response.result as { status?: unknown }).status === "shutting_down"
+      ) {
         console.log('MCP Host shutdown initiated');
 
         // Wait for disconnect event or timeout
@@ -369,7 +381,7 @@ export class McpHostManager {
 
     console.debug(`[McpHostManager] Sending RPC request: ${method} (id: ${id})`);
 
-    return new Promise((resolve, reject) => {
+    return new Promise<unknown>((resolve, reject) => {
       // Set up timeout to reject the promise if no response is received
       const timeoutId = setTimeout(() => {
         this.pendingRequests.delete(id);
@@ -377,7 +389,11 @@ export class McpHostManager {
       }, timeout);
 
       // Store the promise resolvers with the request ID
-      this.pendingRequests.set(id, { resolve, reject, timeoutId });
+      this.pendingRequests.set(id, {
+        resolve: (value: unknown) => resolve(value),
+        reject,
+        timeoutId
+      });
 
       // Send the RPC request message
       this.port?.postMessage({
@@ -386,7 +402,7 @@ export class McpHostManager {
         method,
         params,
       });
-    });
+    }) as Promise<RpcResponse>;
   }
 
   /**
@@ -401,8 +417,17 @@ export class McpHostManager {
    * Processes an incoming RPC request from the MCP Host.
    * @param data The RPC request data
    */
-  private async handleRpcRequest(data: any): Promise<void> {
-    const { method, id, params } = data;
+  private async handleRpcRequest(data: unknown): Promise<void> {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !("method" in data) ||
+      !("id" in data)
+    ) {
+      console.warn("[McpHostManager] Invalid RPC request data", data);
+      return;
+    }
+    const { method, id, params } = data as { method: string; id?: string; params?: unknown };
     console.log(`[McpHostManager] Received RPC request: ${method} (id: ${id})`);
 
     // Find the registered handler for this method
@@ -452,12 +477,20 @@ export class McpHostManager {
    * Processes an incoming RPC response from the MCP Host.
    * @param data The RPC response data
    */
-  private handleRpcResponse(data: any): void {
-    const { id, result, error } = data;
+  private handleRpcResponse(data: unknown): void {
+    if (
+      typeof data !== "object" ||
+      data === null ||
+      !("id" in data)
+    ) {
+      console.warn("[McpHostManager] Invalid RPC response data", data);
+      return;
+    }
+    const { id, error } = data as { id?: string; result?: unknown; error?: unknown };
     console.debug(`[McpHostManager] Received RPC response for ID: ${id}`);
 
     // Find the pending request for this ID
-    const pendingRequest = this.pendingRequests.get(id);
+    const pendingRequest = this.pendingRequests.get(id as string);
     if (!pendingRequest) {
       console.warn(`[McpHostManager] No pending request found for RPC response ID: ${id}`);
       return;
@@ -465,32 +498,39 @@ export class McpHostManager {
 
     // Clear the timeout and remove from pending requests
     clearTimeout(pendingRequest.timeoutId);
-    this.pendingRequests.delete(id);
+    this.pendingRequests.delete(id as string);
 
     // Resolve or reject the promise based on the response
     if (error) {
       pendingRequest.reject(error);
     } else {
-      pendingRequest.resolve(data || {});
+      pendingRequest.resolve(data as unknown);
     }
   }
 
-  private handleMessage(message: any): void {
+  private handleMessage(message: unknown): void {
     console.debug(`[McpHostManager] Received message:`, message);
 
-    switch (message.type) {
+    if (typeof message !== "object" || message === null || !("type" in message)) {
+      console.log("Unknown message from MCP Host:", message);
+      return;
+    }
+
+    const msg = message as { type: string; [key: string]: unknown };
+
+    switch (msg.type) {
       case 'status':
-        this.updateStatus(message.data);
+        this.updateStatus(msg.data as Partial<McpHostStatus>);
         break;
       case 'error':
-        console.error('MCP Host error:', message.error);
+        console.error('MCP Host error:', msg.error);
         break;
       // Handle RPC messages
       case 'rpc_request':
-        this.handleRpcRequest(message);
+        this.handleRpcRequest(msg);
         break;
       case 'rpc_response':
-        this.handleRpcResponse(message);
+        this.handleRpcResponse(msg);
         break;
       default:
         console.log('Unknown message from MCP Host:', message);
@@ -625,16 +665,17 @@ export class McpHostManager {
         console.debug('Status response:', response);
 
         // Process successful response, update status with complete information
-        if (response && response.result) {
-          const statusData = response.result;
+        if (response && typeof response.result === "object" && response.result !== null) {
+          const statusData = response.result as { [key: string]: unknown };
 
           // Convert current_time string to timestamp if needed
           let lastHeartbeat = null;
-          if (statusData.current_time) {
-            if (typeof statusData.current_time === 'string') {
-              lastHeartbeat = new Date(statusData.current_time).getTime();
-            } else if (typeof statusData.current_time === 'number') {
-              lastHeartbeat = statusData.current_time;
+          if ("current_time" in statusData) {
+            const currentTime = statusData.current_time;
+            if (typeof currentTime === 'string') {
+              lastHeartbeat = new Date(currentTime).getTime();
+            } else if (typeof currentTime === 'number') {
+              lastHeartbeat = currentTime;
             } else {
               lastHeartbeat = Date.now();
             }
@@ -642,21 +683,22 @@ export class McpHostManager {
 
           // Parse start_time from MCP Host response
           let startTime = this.status.startTime; // Keep existing startTime if available
-          if (statusData.start_time) {
-            if (typeof statusData.start_time === 'string') {
-              startTime = new Date(statusData.start_time).getTime();
-            } else if (typeof statusData.start_time === 'number') {
-              startTime = statusData.start_time;
+          if ("start_time" in statusData) {
+            const startTimeVal = statusData.start_time;
+            if (typeof startTimeVal === 'string') {
+              startTime = new Date(startTimeVal).getTime();
+            } else if (typeof startTimeVal === 'number') {
+              startTime = startTimeVal;
             }
           }
 
           this.updateStatus({
             lastHeartbeat,
             startTime,
-            version: statusData.version || null,
-            uptime: statusData.uptime || null,
-            ssePort: statusData.sse_port || null,
-            sseBaseURL: statusData.sse_base_url || null,
+            version: typeof statusData.version === "string" ? statusData.version : undefined,
+            uptime: typeof statusData.uptime === "string" ? statusData.uptime : undefined,
+            ssePort: typeof statusData.sse_port === "string" ? statusData.sse_port : undefined,
+            sseBaseURL: typeof statusData.sse_base_url === "string" ? statusData.sse_base_url : undefined,
           });
         }
       })

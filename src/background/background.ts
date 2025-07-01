@@ -1,7 +1,7 @@
 // Algonius Wallet - Background Service Worker (TypeScript)
 // MCP-controlled multi-chain trading wallet with Native Host integration
 
-import { McpHostManager, McpHostStatus } from './McpHostManager';
+import { McpHostManager } from '../mcp/McpHostManager';
 
 // Initialize MCP Host Manager
 const mcpHostManager = new McpHostManager();
@@ -92,9 +92,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * Handle Web3 provider requests from content scripts
  */
 async function handleWeb3Request(
-  request: any,
+  request: unknown,
   sender: chrome.runtime.MessageSender,
-  sendResponse: (response?: any) => void
+  sendResponse: (response?: unknown) => void
 ) {
   try {
     if (!mcpHostManager.getStatus().isConnected) {
@@ -102,12 +102,21 @@ async function handleWeb3Request(
       return;
     }
 
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      !("method" in request)
+    ) {
+      sendResponse({ error: "Invalid Web3 request" });
+      return;
+    }
+
     // Forward the request to MCP Host via RPC
     const response = await mcpHostManager.rpcRequest({
       method: 'web3_request',
       params: {
-        method: request.method,
-        params: request.params,
+        method: (request as { method: string }).method,
+        params: (request as { params?: unknown }).params,
         origin: sender.tab?.url
       }
     });
