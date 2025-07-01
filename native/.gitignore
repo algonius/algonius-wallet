@@ -1,0 +1,58 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, known as profile.out
+profile.out
+coverage.out
+cover.profile.*
+
+# Dependency / vendor directories
+/vendor/
+/go.sum.bak
+
+# Go workspace file
+go.work
+
+# IDE and editor files
+/.idea/
+/.vscode/
+/*.swp
+*.swo
+*.zip~  # For vim-go temp zip files
+
+# Logs, databases and other files
+*.log
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# Build artifacts
+/bin/
+/dist/
+/build/
+main
+
+# Docker files
+/docker-compose.*.yml
+/.env
+
+# Local config files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# macOS specific
+.DS_Store
+
+# Windows specific
+Thumbs.db

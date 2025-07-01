@@ -1,0 +1,41 @@
+{
+  "name": "algonius-wallet",
+  "private": true,
+  "version": "0.1.3",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "zip": "mkdir -p dist-zip && VERSION=${npm_package_version} && zip -r dist-zip/algonius-wallet-extension-v$VERSION.zip dist/",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ci": "vitest --run",
+    "format": "prettier --write .",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.328",
+    "@types/node": "^24.0.7",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "eslint": "^9.30.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.5.1",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^3.4.3",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.0",
+    "vite-plugin-static-copy": "^3.1.0",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}

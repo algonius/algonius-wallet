@@ -1,0 +1,287 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+env:
+  RELEASE_VERSION: ${{ github.event.inputs.version || github.ref_name }}
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate and prepare version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Version format '$VERSION' is not valid. Expected format: x.y.z"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Prepared version: $VERSION"
+
+  build-and-test:
+    name: Build and Test Extension
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules
+          npm ci --no-audit --no-fund
+
+      - name: Update version in package.json
+        run: |
+          VERSION=${{ needs.prepare-release.outputs.version }}
+          echo "Updating version to $VERSION"
+          bash update_version.sh $VERSION
+          echo "Root package.json version: $(jq -r '.version' package.json)"
+
+      - name: Build Extension
+        run: |
+          VERSION=${{ needs.prepare-release.outputs.version }}
+          echo "Building extension with version $VERSION"
+          npm run build
+
+      - name: Create zip package
+        run: npm run zip
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: algonius-wallet-extension
+          path: |
+            dist-zip/*.zip
+          retention-days: 30
+
+      - name: Upload updated source files
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-source-files
+          path: |
+            package.json
+          retention-days: 1
+
+  build-go-host:
+    name: Build Go Native Host
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            name: linux-amd64
+          - goos: darwin
+            goarch: amd64
+            name: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            name: darwin-arm64
+          - goos: windows
+            goarch: amd64
+            name: windows-amd64
+            ext: .exe
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('native/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install Go dependencies
+        working-directory: native
+        run: go mod download
+
+      - name: Run Go tests
+        working-directory: native
+        run: make unit-test
+
+      - name: Build for ${{ matrix.name }}
+        working-directory: native
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${{ needs.prepare-release.outputs.version }}
+          BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+          GIT_COMMIT=$(git rev-parse --short HEAD)
+          echo "Building Algonius Wallet Native Host ${{ matrix.name }} with version $VERSION"
+          go build \
+            -trimpath \
+            -ldflags "-s -w -X 'main.Version=$VERSION' -X 'main.BuildTime=$BUILD_TIME' -X 'main.GitCommit=$GIT_COMMIT'" \
+            -o bin/algonius-wallet-host-${{ matrix.name }}${{ matrix.ext }} \
+            ./cmd/...
+
+      - name: Upload Go binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: algonius-wallet-host-${{ matrix.name }}
+          path: native/bin/algonius-wallet-host-${{ matrix.name }}${{ matrix.ext }}
+          retention-days: 30
+
+  create-release:
+    name: Create Release
+    needs: [prepare-release, build-and-test, build-go-host]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Download updated source files
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-source-files
+          path: ./
+
+      - name: Commit and push version changes
+        run: |
+          VERSION=${{ needs.prepare-release.outputs.version }}
+          if git diff --quiet; then
+            echo "No version changes to commit"
+          else
+            echo "Committing version changes for $VERSION"
+            git add .
+            git commit -m "chore: bump version to $VERSION"
+            git push origin HEAD
+          fi
+
+      - name: Create and push tag
+        run: |
+          TAG=${{ needs.prepare-release.outputs.tag }}
+          echo "Creating and pushing tag: $TAG"
+          git tag $TAG
+          git push origin $TAG
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          VERSION=${{ needs.prepare-release.outputs.version }}
+          mkdir -p release-assets
+          echo "=== All artifacts structure ==="
+          find artifacts -type f -name "*.zip" -o -name "algonius-wallet-host-*" | head -20
+          # Extension zip
+          EXT_ZIP=$(find artifacts/algonius-wallet-extension -name "*.zip" | head -1)
+          if [ -n "$EXT_ZIP" ]; then
+            cp "$EXT_ZIP" release-assets/algonius-wallet-extension-v$VERSION.zip
+            echo "Copied extension: $EXT_ZIP"
+          else
+            echo "Warning: Extension zip not found"
+          fi
+          # Go binaries
+          find artifacts -name "algonius-wallet-host-*" -type f -exec cp {} release-assets/ \;
+          echo "=== Final release assets ==="
+          ls -la release-assets/
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION=${{ needs.prepare-release.outputs.version }}
+          cat > release_notes.md << EOF
+          ## Algonius Wallet v${VERSION}
+
+          ### 🚀 What's New
+
+          This release includes the latest features and improvements to Algonius Wallet, an open-source AI wallet and automation tool.
+
+          ### 📦 Downloads
+
+          **Browser Extension:**
+          - Chrome/Firefox Extension: \`algonius-wallet-extension-v${VERSION}.zip\`
+
+          **Native Host (for external AI integration):**
+          - Linux (x64): \`algonius-wallet-host-linux-amd64\`
+          - macOS (Intel): \`algonius-wallet-host-darwin-amd64\`
+          - macOS (Apple Silicon): \`algonius-wallet-host-darwin-arm64\`
+          - Windows (x64): \`algonius-wallet-host-windows-amd64.exe\`
+
+          ### 🛠️ Installation
+
+          1. **Browser Extension**: Load the unpacked extension or install from the Chrome/Firefox Web Store
+          2. **Native Host**: Download the appropriate binary for your platform and follow the setup instructions
+
+          ### 🔗 Documentation
+
+          - [Installation Guide](https://github.com/algonius/algonius-wallet#installation)
+          - [MCP Integration](./docs/)
+          - [API Documentation](./docs/)
+
+          ---
+
+          Full changelog and technical details can be found in the commit history.
+          EOF
+
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.tag }}
+          name: "Algonius Wallet v${{ needs.prepare-release.outputs.version }}"
+          body: ${{ steps.release_notes.outputs.release_notes }}
+          draft: false
+          prerelease: false
+          files: |
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

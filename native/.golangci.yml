@@ -1,0 +1,77 @@
+# Algonius Wallet - golangci-lint configuration (updated for v1.59+)
+# Enforces security, code quality, and team conventions (English-only comments)
+
+run:
+  timeout: 5m
+  tests: true
+  working-dir: .
+
+issues:
+  exclude-files:
+    - .*/src/slices/iter.go
+    - .*/go/pkg/mod/.*
+    - .*/go/pkg/toolchain/.*
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+  exclude-dirs:
+    - bin
+    - docs
+    - tests/integration
+    - ../../../../go/pkg/mod
+    - ../../../../go/pkg/toolchain
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - typecheck
+    - gosec
+    - misspell
+    - revive
+    - gocritic
+    - dupl
+    - depguard
+    - exportloopref
+    - nakedret
+    - prealloc
+    - unparam
+    - whitespace
+    - forbidigo
+
+  disable:
+    - lll # Line length not enforced for now
+
+linters-settings:
+  misspell:
+    locale: US
+  revive:
+    rules:
+      - name: comments
+        arguments:
+          - require-eng: true
+  gosec:
+    # Exclude some false positives for CLI tools, but keep most checks
+    exclude:
+      - G104 # Ignoring errors returned by some functions
+  forbidigo:
+    # Forbid Chinese comments in code (team convention)
+    forbid:
+      - pattern: '[\u4e00-\u9fff]+'
+        message: 'Chinese comments are not allowed. Use English for all code comments.'
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+modules-download-mode: readonly
