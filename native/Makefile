@@ -39,17 +39,16 @@ clean:
 	rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 
 install: build
-	@echo "Installing native host..."
-	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/
-	sudo cp $(MANIFEST_NAME) $(MANIFEST_DIR)/
-	sudo chmod 755 $(INSTALL_DIR)/$(BINARY_NAME)
-	sudo chmod 644 $(MANIFEST_DIR)/$(MANIFEST_NAME)
-	
-	# Create configuration directory
-	mkdir -p ~/.algonius-wallet
-	chmod 700 ~/.algonius-wallet
-	
-	@echo "Native host installed successfully"
+	@echo "Installing native host to $(HOME)/.algonius-wallet/bin/algonius-wallet-host ..."
+	mkdir -p $(HOME)/.algonius-wallet/bin
+	cp ./bin/$(BINARY_NAME) $(HOME)/.algonius-wallet/bin/algonius-wallet-host
+	chmod 755 $(HOME)/.algonius-wallet/bin/algonius-wallet-host
+
+	# Optionally create configuration directory
+	mkdir -p $(HOME)/.algonius-wallet
+	chmod 700 $(HOME)/.algonius-wallet
+
+	@echo "Native host installed successfully at $(HOME)/.algonius-wallet/bin/algonius-wallet-host"
 
 uninstall:
 	@echo "Uninstalling native host..."
