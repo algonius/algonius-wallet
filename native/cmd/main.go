@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/algonius/algonius-wallet/native/pkg/events"
 	"github.com/algonius/algonius-wallet/native/pkg/logger"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/resources"
@@ -50,7 +51,17 @@ func main() {
 	// Create shared wallet manager for both MCP and Native Messaging
 	walletManager := wallet.NewWalletManager()
 
-	logr.Info("Starting Algonius Native Host with both Native Messaging and HTTP/MCP servers")
+	// Create event broadcaster for real-time notifications
+	eventBroadcaster := events.NewEventBroadcaster(logr)
+
+	// Get server type from environment variable
+	serverType := os.Getenv("MCP_SERVER_TYPE")
+	if serverType == "" {
+		serverType = "http_stream" // Default to HTTP Stream
+	}
+
+	logr.Info("Starting Algonius Native Host with both Native Messaging and MCP servers",
+		zap.String("mcp_server_type", serverType))
 
 	// Initialize Native Messaging for browser extension communication
 	nm, err := messaging.NewNativeMessaging(messaging.NativeMessagingConfig{
@@ -144,6 +155,9 @@ func main() {
 	// Register wallet_status resource
 	mcp.RegisterResource(s, resources.NewWalletStatusResource(walletManager))
 
+	// Register SSE events resource
+	mcp.RegisterResource(s, resources.NewSSEEventsResource(eventBroadcaster, logr))
+
 	// Register MCP tools (no import_wallet tool as per security requirements)
 	createWalletTool := tools.NewCreateWalletTool(walletManager)
 	mcp.RegisterTool(s, createWalletTool)
@@ -160,20 +174,36 @@ func main() {
 	swapTokensTool := tools.NewSwapTokensTool(walletManager)
 	mcp.RegisterTool(s, swapTokensTool)
 
-	// Start HTTP MCP server in a goroutine
+	// Start MCP server based on environment variable
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		httpServer := server.NewStreamableHTTPServer(s)
-		port := os.Getenv("SSE_PORT")
+
+		port := os.Getenv("MCP_PORT")
 		if port == "" {
-			port = ":9444"
+			port = "9444"
 		}
-		logr.Info("Starting MCP HTTP server", zap.String("port", port), zap.String("endpoint", "/mcp"))
-		if err := httpServer.Start(port); err != nil {
-			logr.Error("HTTP Server error", zap.Error(err))
-			os.Exit(1)
+		if port[0] != ':' {
+			port = ":" + port
+		}
+
+		switch serverType {
+		case "sse":
+			logr.Info("Starting MCP SSE server", zap.String("port", port), zap.String("endpoint", "/sse"))
+			sseServer := server.NewSSEServer(s)
+			if err := sseServer.Start(port); err != nil {
+				logr.Error("SSE Server error", zap.Error(err))
+				os.Exit(1)
+			}
+		case "http_stream":
+		default:
+			logr.Info("Starting MCP HTTP Stream server", zap.String("port", port), zap.String("endpoint", "/mcp"))
+			httpServer := server.NewStreamableHTTPServer(s)
+			if err := httpServer.Start(port); err != nil {
+				logr.Error("HTTP Stream Server error", zap.Error(err))
+				os.Exit(1)
+			}
 		}
 	}()
 
