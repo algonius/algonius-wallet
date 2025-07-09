@@ -155,8 +155,11 @@ func main() {
 	// Register wallet_status resource
 	mcp.RegisterResource(s, resources.NewWalletStatusResource(walletManager))
 
-	// Register SSE events resource
-	mcp.RegisterResource(s, resources.NewSSEEventsResource(eventBroadcaster, logr))
+	// Register events stream resource with resource manager
+	resourceManager := mcp.NewResourceManager(s)
+	eventsStreamResource := resources.NewEventsStreamResource(eventBroadcaster, logr)
+	eventsStreamResource.SetResourceManager(resourceManager)
+	mcp.RegisterResource(s, eventsStreamResource)
 
 	// Register MCP tools (no import_wallet tool as per security requirements)
 	createWalletTool := tools.NewCreateWalletTool(walletManager)
