@@ -47,7 +47,7 @@
 - [ ] Implement business logic and parameter validation for all MCP tool/resource handlers
 - [ ] Add/expand unit and integration tests for each handler.
 - [ ] Multi-chain support and chain switching
-- [ ] SSE event push and subscription (for AI Agent)
+- [x] SSE event push and subscription (for AI Agent) - **COMPLETED**
 - [ ] Security enhancements (multi-signature, hardware wallet, risk control)
 
 ## Issue Tracking
@@ -64,7 +64,7 @@
 - [ ] [#003] Add DeFi integration (`swap_tokens` tool via Uniswap/PancakeSwap)
 - [ ] [#005] Implement message signing capabilities (`sign_message` tool - EIP-191/EIP-712)
 - [ ] [#004] Add transaction history querying functionality (`get_transactions` tool)
-- [ ] [#006] Implement real-time event streaming (SSE events resource)
+- [x] [#006] Implement real-time event streaming (SSE events resource) - **COMPLETED**
 
 ### Low Priority Issues
 
@@ -79,6 +79,10 @@
 - [x] MCP tool/resource registration framework
 - [x] Basic wallet operations (`create_wallet`, `get_balance`)
 - [x] Integration test infrastructure
+- [x] SSE (Server-Sent Events) implementation using mcp-go library
+- [x] Event broadcasting system with thread-safe session management
+- [x] Real-time event streaming for wallet operations
+- [x] Comprehensive SSE test suite and documentation
 
 ### Phase 3: Browser Extension 细节优化
 
