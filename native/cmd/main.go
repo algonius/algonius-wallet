@@ -161,6 +161,10 @@ func main() {
 	eventsStreamResource.SetResourceManager(resourceManager)
 	mcp.RegisterResource(s, eventsStreamResource)
 
+	// Register SSE events resource for event type documentation
+	sseEventsResource := resources.NewSSEEventsResource(eventBroadcaster, logr)
+	mcp.RegisterResource(s, sseEventsResource)
+
 	// Register MCP tools (no import_wallet tool as per security requirements)
 	createWalletTool := tools.NewCreateWalletTool(walletManager)
 	mcp.RegisterTool(s, createWalletTool)
@@ -168,10 +172,10 @@ func main() {
 	getBalanceTool := tools.NewGetBalanceTool(walletManager)
 	mcp.RegisterTool(s, getBalanceTool)
 
-	sendTransactionTool := tools.NewSendTransactionTool(walletManager)
+	sendTransactionTool := tools.NewSendTransactionToolWithBroadcaster(walletManager, eventBroadcaster)
 	mcp.RegisterTool(s, sendTransactionTool)
 
-	confirmTransactionTool := tools.NewConfirmTransactionTool(walletManager)
+	confirmTransactionTool := tools.NewConfirmTransactionToolWithBroadcaster(walletManager, eventBroadcaster)
 	mcp.RegisterTool(s, confirmTransactionTool)
 
 	swapTokensTool := tools.NewSwapTokensTool(walletManager)

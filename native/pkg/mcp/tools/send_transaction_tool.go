@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/algonius/algonius-wallet/native/pkg/events"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -12,12 +13,18 @@ import (
 
 // SendTransactionTool implements the MCP "send_transaction" tool for sending blockchain transactions.
 type SendTransactionTool struct {
-	manager wallet.IWalletManager
+	manager     wallet.IWalletManager
+	broadcaster *events.EventBroadcaster
 }
 
 // NewSendTransactionTool constructs a SendTransactionTool with the given wallet manager.
 func NewSendTransactionTool(manager wallet.IWalletManager) *SendTransactionTool {
-	return &SendTransactionTool{manager: manager}
+	return &SendTransactionTool{manager: manager, broadcaster: nil}
+}
+
+// NewSendTransactionToolWithBroadcaster constructs a SendTransactionTool with wallet manager and event broadcaster.
+func NewSendTransactionToolWithBroadcaster(manager wallet.IWalletManager, broadcaster *events.EventBroadcaster) *SendTransactionTool {
+	return &SendTransactionTool{manager: manager, broadcaster: broadcaster}
 }
 
 // GetMeta returns the MCP tool definition for "send_transaction" as per the documented API schema.
@@ -108,7 +115,41 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Send the transaction
 		txHash, err := t.manager.SendTransaction(ctx, chain, from, to, amount, token)
 		if err != nil {
+			// Broadcast transaction failed event
+			if t.broadcaster != nil {
+				event := events.CreateTransactionEvent(
+					events.EventTypeTransactionFailed,
+					chain,
+					"",
+					from,
+					to,
+					amount,
+					token,
+					map[string]interface{}{
+						"error": err.Error(),
+					},
+				)
+				t.broadcaster.BroadcastEvent(event)
+			}
 			return mcp.NewToolResultError(fmt.Sprintf("failed to send transaction: %v", err)), nil
+		}
+
+		// Broadcast transaction pending event
+		if t.broadcaster != nil {
+			event := events.CreateTransactionEvent(
+				events.EventTypeTransactionPending,
+				chain,
+				txHash,
+				from,
+				to,
+				amount,
+				token,
+				map[string]interface{}{
+					"gas_limit": finalGasLimit,
+					"gas_price": finalGasPrice,
+				},
+			)
+			t.broadcaster.BroadcastEvent(event)
 		}
 
 		// Format success response

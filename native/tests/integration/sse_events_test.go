@@ -266,12 +266,18 @@ func TestSSEEndToEnd(t *testing.T) {
 }
 
 // Example of how to manually test SSE with curl:
-func ExampleSSEManualTest() {
+func Example_sSEManualTest() {
 	fmt.Println("Manual SSE testing:")
 	fmt.Println("1. Set environment variable: export MCP_SERVER_TYPE=sse")
-	fmt.Println("2. Start the native host: ./bin/native-host")
+	fmt.Println("2. Start the native host: ./bin/algonius-wallet-host")
 	fmt.Println("3. Connect with curl: curl -N -H 'Accept: text/event-stream' http://localhost:9444/sse/events")
 	fmt.Println("4. Trigger wallet operations to see events")
+	// Output:
+	// Manual SSE testing:
+	// 1. Set environment variable: export MCP_SERVER_TYPE=sse
+	// 2. Start the native host: ./bin/algonius-wallet-host
+	// 3. Connect with curl: curl -N -H 'Accept: text/event-stream' http://localhost:9444/sse/events
+	// 4. Trigger wallet operations to see events
 }
 
 // BenchmarkEventBroadcasting benchmarks the event broadcasting performance
