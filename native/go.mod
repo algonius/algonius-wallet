@@ -1,8 +1,6 @@
 module github.com/algonius/algonius-wallet/native
 
-go 1.23
-
-toolchain go1.23.10
+go 1.23.10
 
 require (
 	github.com/ethereum/go-ethereum v1.13.12

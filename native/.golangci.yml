@@ -6,7 +6,7 @@ version: 2
 run:
   timeout: 5m
   tests: false
-  go: "1.21"
+  go: "1.23.10"
 
 issues:
   max-issues-per-linter: 0
@@ -154,8 +154,6 @@ linters-settings:
     locale: US
 
 output:
-  formats:
-    colored-line-number:
-      path: stdout
+  format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
