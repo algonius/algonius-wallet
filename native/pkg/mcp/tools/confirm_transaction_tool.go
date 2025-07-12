@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/algonius/algonius-wallet/native/pkg/events"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -13,15 +14,26 @@ import (
 
 // ConfirmTransactionTool implements the MCP "confirm_transaction" tool for checking transaction status.
 type ConfirmTransactionTool struct {
-	manager wallet.IWalletManager
-	factory *chain.ChainFactory
+	manager     wallet.IWalletManager
+	factory     *chain.ChainFactory
+	broadcaster *events.EventBroadcaster
 }
 
 // NewConfirmTransactionTool constructs a ConfirmTransactionTool with the given wallet manager.
 func NewConfirmTransactionTool(manager wallet.IWalletManager) *ConfirmTransactionTool {
 	return &ConfirmTransactionTool{
-		manager: manager,
-		factory: chain.NewChainFactory(),
+		manager:     manager,
+		factory:     chain.NewChainFactory(),
+		broadcaster: nil,
+	}
+}
+
+// NewConfirmTransactionToolWithBroadcaster constructs a ConfirmTransactionTool with wallet manager and event broadcaster.
+func NewConfirmTransactionToolWithBroadcaster(manager wallet.IWalletManager, broadcaster *events.EventBroadcaster) *ConfirmTransactionTool {
+	return &ConfirmTransactionTool{
+		manager:     manager,
+		factory:     chain.NewChainFactory(),
+		broadcaster: broadcaster,
 	}
 }
 
