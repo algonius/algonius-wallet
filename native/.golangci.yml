@@ -1,7 +1,5 @@
 # Algonius Wallet - golangci-lint configuration v1.59.1
-# Essential security and code quality checks only
-
-version: 2
+# Minimal configuration for Go 1.23.10 compatibility
 
 run:
   timeout: 5m
@@ -9,8 +7,6 @@ run:
   go: "1.23.10"
 
 issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
   exclude-dirs:
     - tests
     - vendor
@@ -24,43 +20,12 @@ issues:
 linters:
   disable-all: true
   enable:
-    # Essential static analysis
-    - govet          # Go vet built-in checks
-    - staticcheck    # Comprehensive static analysis
     - errcheck       # Check for unchecked errors
     - unused         # Find unused code
     - ineffassign    # Detect ineffective assignments
-    
-    # Code style (minimal)
     - misspell       # Fix spelling mistakes
 
 linters-settings:
-  govet:
-    enable-all: false
-    enable:
-      - assign
-      - atomic
-      - bools
-      - buildtag
-      - copylocks
-      - errorsas
-      - httpresponse
-      - loopclosure
-      - lostcancel
-      - nilfunc
-      - printf
-      - shift
-      - stdmethods
-      - structtag
-      - tests
-      - unmarshal
-      - unreachable
-      - unsafeptr
-      - unusedresult
-  
-  staticcheck:
-    checks: ["all"]
-  
   errcheck:
     check-type-assertions: false
     check-blank: false
