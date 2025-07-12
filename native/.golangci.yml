@@ -13,82 +13,16 @@ issues:
   max-same-issues: 0
   exclude-dirs:
     - tests
-    - tests/integration
-    - tests/integration/env
     - vendor
-    - .git
   exclude-files:
-    - "**/*_test.go"
-    - "**/test_*.go" 
-    - "tests/**"
-    - "tests/**/*.go"
-    - "**/tests/**"
-    - "**/*_mock.go"
-    - "**/mock_*.go"
-    - ".*_test\\.go$"
-    - "tests/.*"
-    - "tests/integration/.*"
-    - "tests/integration/env/.*"
-    - "**/go/pkg/mod/**"
-    - "**/src/slices/**"
-    - "**/src/os/**"
-    - "**/src/net/**"
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
-        - staticcheck
-        - unused
-        - ineffassign
-        - govet
-        - misspell
-    - path: test_.*\.go
-      linters:
-        - errcheck
-        - gosec
-        - staticcheck
-        - unused
-        - ineffassign
-        - govet
-        - misspell
-    - path: tests/
-      linters:
-        - errcheck
-        - gosec
-        - staticcheck
-        - unused
-        - ineffassign
-        - govet
-        - misspell
-    - path: tests/integration/env/
-      linters:
-        - errcheck
-        - gosec
-        - staticcheck
-        - unused
-        - ineffassign
-        - govet
-        - misspell
-    - path: ".*/(slices|os|net)/.*"
-      linters:
-        - typecheck
-        - govet
-        - staticcheck
-    - text: "cannot range over seq"
-      linters:
-        - typecheck
-    - text: "not enough arguments in call to time.Unix"
-      linters:
-        - typecheck
-    - text: "o.String undefined"
-      linters:
-        - typecheck
-    - text: "missing type in composite literal"
-      linters:
-        - typecheck
+    - "_test\\.go$"
+    - "test_.*\\.go$" 
+    - "tests/.*\\.go$"
+    - "mock_.*\\.go$"
+    - ".*_mock\\.go$"
 
 linters:
+  disable-all: true
   enable:
     # Essential static analysis
     - govet          # Go vet built-in checks
@@ -97,14 +31,8 @@ linters:
     - unused         # Find unused code
     - ineffassign    # Detect ineffective assignments
     
-    # Security (disabled due to false positives with integer conversions)
-    # - gosec          # Security-focused checks
-    
     # Code style (minimal)
     - misspell       # Fix spelling mistakes
-    
-    
-  disable-all: true
 
 linters-settings:
   govet:
@@ -141,19 +69,11 @@ linters-settings:
       - fmt.Println
       - fmt.Printf
   
-  gosec:
-    exclude:
-      - G104  # Audit errors not checked (covered by errcheck)
-      - G204  # Command execution (needed for CLI operations)
-      - G304  # File path injection (false positives in tests)
-      - G115  # Integer overflow conversion (safe in our use cases)
-      - G301  # Directory permissions (acceptable for log/test directories)
-      - G102  # Bind to all interfaces (needed for test environments)
-  
   misspell:
     locale: US
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
