@@ -134,7 +134,11 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Calculate deadline timestamp
-		deadlineTimestamp := uint64(time.Now().Unix() + int64(deadline))
+		deadlineTime := time.Now().Add(time.Duration(deadline) * time.Minute)
+		if deadlineTime.Unix() < 0 {
+			return mcp.NewToolResultError("invalid deadline: results in negative timestamp"), nil
+		}
+		deadlineTimestamp := uint64(deadlineTime.Unix())
 
 		// Create DEX instance
 		dexInstance, err := t.dexFactory.CreateDEX(dexProtocol, chain)

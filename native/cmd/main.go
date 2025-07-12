@@ -36,7 +36,7 @@ func main() {
 	// Initialize project logger
 	logr, err := logger.NewLogger("main")
 	if err != nil {
-		os.Stderr.WriteString("Failed to initialize logger: " + err.Error() + "\n")
+		_, _ = os.Stderr.WriteString("Failed to initialize logger: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 

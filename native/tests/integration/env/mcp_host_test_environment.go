@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -197,7 +196,7 @@ func (env *McpHostTestEnvironment) readAndOutputLogs() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Keep track of the last read position
 	// For simplicity, we'll read from the end and follow new content
@@ -228,42 +227,6 @@ func (env *McpHostTestEnvironment) readAndOutputLogs() error {
 	return nil
 }
 
-// tailLogFile continuously tails the log file and outputs new lines
-func (env *McpHostTestEnvironment) tailLogFile(ctx context.Context) error {
-	file, err := os.Open(env.logFilePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Seek to end of file
-	file.Seek(0, io.SeekEnd)
-
-	reader := bufio.NewReader(file)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-env.logMonitorStop:
-			return nil
-		default:
-		}
-
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				// No new data, wait a bit
-				time.Sleep(100 * time.Millisecond)
-				continue
-			}
-			return err
-		}
-
-		// Output the log line with prefix
-		log.Printf("[MCP-HOST] %s", line[:len(line)-1]) // Remove trailing newline
-	}
-}
 
 func (env *McpHostTestEnvironment) waitForHostReady(ctx context.Context) error {
 	// If baseURL is empty, assume stdio mode and skip HTTP readiness check
@@ -285,12 +248,12 @@ func (env *McpHostTestEnvironment) waitForHostReady(ctx context.Context) error {
 		// Try to connect to the base URL
 		resp, err := client.Get(env.baseURL + "/")
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			log.Printf("[LOG-MONITOR] MCP host is ready at %s", env.baseURL)
 			return nil
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 
 		time.Sleep(1 * time.Second)
@@ -390,7 +353,7 @@ func findAvailablePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	addr := listener.Addr().(*net.TCPAddr)
 	return addr.Port, nil

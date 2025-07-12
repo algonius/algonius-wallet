@@ -206,7 +206,7 @@ func (e *ETHChain) EstimateGas(ctx context.Context, from, to string, amount stri
 
 	// Basic gas estimation based on transaction type
 	var baseGasLimit uint64
-	var baseGasPrice string = "20" // 20 gwei as default
+	baseGasPrice := "20" // 20 gwei as default
 
 	if strings.ToUpper(token) == "ETH" {
 		// Simple ETH transfer
@@ -272,9 +272,9 @@ func (e *ETHChain) ConfirmTransaction(ctx context.Context, txHash string, requir
 	var status string
 	var confirmations uint64
 	var blockNumber uint64 = 18500000 // Mock block number
-	var gasUsed string = "21000"      // Standard ETH transfer gas
-	var transactionFee string = "0.000420" // Mock fee (20 gwei * 21000 gas)
-	var timestamp time.Time = time.Now().Add(-10 * time.Minute) // Mock timestamp
+	gasUsed := "21000"      // Standard ETH transfer gas
+	transactionFee := "0.000420" // Mock fee (20 gwei * 21000 gas)
+	timestamp := time.Now().Add(-10 * time.Minute) // Mock timestamp
 
 	// Simple logic to simulate transaction states based on hash
 	hashBytes := common.HexToHash(txHash).Bytes()

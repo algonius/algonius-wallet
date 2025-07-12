@@ -201,7 +201,7 @@ func (b *BSCChain) EstimateGas(ctx context.Context, from, to string, amount stri
 
 	// Basic gas estimation based on transaction type for BSC
 	var baseGasLimit uint64
-	var baseGasPrice string = "5" // 5 gwei as default for BSC (typically lower than ETH)
+	baseGasPrice := "5" // 5 gwei as default for BSC (typically lower than ETH)
 
 	if strings.ToUpper(token) == "BNB" {
 		// Simple BNB transfer
@@ -267,9 +267,9 @@ func (b *BSCChain) ConfirmTransaction(ctx context.Context, txHash string, requir
 	var status string
 	var confirmations uint64
 	var blockNumber uint64 = 34567890 // Mock BSC block number (higher than ETH)
-	var gasUsed string = "21000"      // Standard BNB transfer gas
-	var transactionFee string = "0.000105" // Mock fee (5 gwei * 21000 gas - BSC is cheaper)
-	var timestamp time.Time = time.Now().Add(-5 * time.Minute) // Mock timestamp (BSC is faster)
+	gasUsed := "21000"      // Standard BNB transfer gas
+	transactionFee := "0.000105" // Mock fee (5 gwei * 21000 gas - BSC is cheaper)
+	timestamp := time.Now().Add(-5 * time.Minute) // Mock timestamp (BSC is faster)
 
 	// Simple logic to simulate transaction states based on hash
 	hashBytes := common.HexToHash(txHash).Bytes()

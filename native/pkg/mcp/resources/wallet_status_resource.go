@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -23,6 +24,17 @@ func NewWalletStatusResource(walletManager wallet.IWalletManager) *WalletStatusR
 	return &WalletStatusResource{
 		WalletManager: walletManager,
 	}
+}
+
+// titleCase converts the first character of a string to uppercase.
+// This replaces the deprecated strings.Title function.
+func titleCase(s string) string {
+	if s == "" {
+		return s
+	}
+	runes := []rune(s)
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
 }
 
 // GetMeta returns the MCP resource definition for wallet status.
@@ -103,7 +115,7 @@ func (r *WalletStatusResource) formatWalletStatusMarkdown(status *wallet.WalletS
 
 	// Supported Chains section
 	builder.WriteString("## Supported Chains\n")
-	if status.Chains != nil && len(status.Chains) > 0 {
+	if len(status.Chains) > 0 {
 		// Define display names for chains
 		chainNames := map[string]string{
 			"ethereum": "Ethereum (ETH)",
@@ -121,7 +133,7 @@ func (r *WalletStatusResource) formatWalletStatusMarkdown(status *wallet.WalletS
 				}
 				displayName := chainNames[chain]
 				if displayName == "" {
-					displayName = strings.Title(chain)
+					displayName = titleCase(chain)
 				}
 				builder.WriteString(fmt.Sprintf("- %s %s\n", icon, displayName))
 			}
@@ -134,7 +146,7 @@ func (r *WalletStatusResource) formatWalletStatusMarkdown(status *wallet.WalletS
 				if supported {
 					icon = "✅"
 				}
-				builder.WriteString(fmt.Sprintf("- %s %s\n", icon, strings.Title(chain)))
+				builder.WriteString(fmt.Sprintf("- %s %s\n", icon, titleCase(chain)))
 			}
 		}
 	} else {

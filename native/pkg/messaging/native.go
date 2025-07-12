@@ -95,7 +95,7 @@ func (nm *NativeMessaging) Start() error {
 func (nm *NativeMessaging) processBuffer() {
 	for len(nm.buffer) >= 4 {
 		messageLength := binary.LittleEndian.Uint32(nm.buffer[:4])
-		if uint32(len(nm.buffer)) < messageLength+4 {
+		if len(nm.buffer) < int(messageLength)+4 {
 			return
 		}
 		messageJSON := nm.buffer[4 : messageLength+4]
@@ -166,6 +166,9 @@ func (nm *NativeMessaging) SendMessage(message Message) error {
 	messageJSON, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("error marshaling message: %w", err)
+	}
+	if len(messageJSON) > 0xFFFFFFFF {
+		return fmt.Errorf("message too large: %d bytes", len(messageJSON))
 	}
 	messageLength := uint32(len(messageJSON))
 	buffer := make([]byte, 4+messageLength)

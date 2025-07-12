@@ -78,8 +78,7 @@ func (t *ConfirmTransactionTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Extract optional required_confirmations parameter
-		var requiredConfirmations uint64 = 0 // Will use chain defaults
-		requiredConfirmations = uint64(req.GetFloat("required_confirmations", 0))
+		requiredConfirmations := uint64(req.GetFloat("required_confirmations", 0))
 
 		// Check transaction confirmation status
 		confirmation, err := wallet.ConfirmTransaction(ctx, normalizedChain, txHash, requiredConfirmations, t.factory)

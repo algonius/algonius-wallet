@@ -95,8 +95,8 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Perform gas estimation if not provided
-		var finalGasLimit float64 = gasLimit
-		var finalGasPrice string = gasPrice
+		finalGasLimit := gasLimit
+		finalGasPrice := gasPrice
 
 		if gasLimit == 0 || gasPrice == "" {
 			estimatedGasLimit, estimatedGasPrice, err := t.manager.EstimateGas(ctx, chain, from, to, amount, token)

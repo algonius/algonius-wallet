@@ -100,7 +100,7 @@ func ensureLogDirExists(filePath string) error {
 	logDir := filepath.Dir(filePath)
 
 	// Create the directory with all parent directories if they don't exist
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	if err := os.MkdirAll(logDir, 0750); err != nil {
 		return fmt.Errorf("failed to create log directory %s: %w", logDir, err)
 	}
 
