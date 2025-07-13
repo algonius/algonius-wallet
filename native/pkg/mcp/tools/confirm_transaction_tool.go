@@ -66,7 +66,7 @@ func (t *ConfirmTransactionTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Extract optional required_confirmations parameter
-		var requiredConfirmations uint64 = 0 // Will use chain defaults
+		var requiredConfirmations uint64
 		requiredConfirmations = uint64(req.GetFloat("required_confirmations", 0))
 
 		// Check transaction confirmation status
