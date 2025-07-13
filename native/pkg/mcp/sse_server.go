@@ -161,9 +161,9 @@ func (s *SSEServer) processMCPRequest(request *mcp.JSONRPCRequest) interface{} {
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
-			Error: &mcp.JSONRPCError{
-				Code:    -32601,
-				Message: "Method not found",
+			Err: &mcp.JSONRPCError{
+				ErrCode:    -32601,
+				ErrMessage: "Method not found",
 			},
 		}
 	}
@@ -193,9 +193,9 @@ func (s *SSEServer) handleToolsList(request *mcp.JSONRPCRequest) interface{} {
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
-			Error: &mcp.JSONRPCError{
-				Code:    -32000,
-				Message: err.Error(),
+			Err: &mcp.JSONRPCError{
+				ErrCode:    -32000,
+				ErrMessage: err.Error(),
 			},
 		}
 	}
@@ -221,9 +221,9 @@ func (s *SSEServer) handleToolsCall(request *mcp.JSONRPCRequest) interface{} {
 			return mcp.JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
-				Error: &mcp.JSONRPCError{
-					Code:    -32602,
-					Message: "Invalid params",
+				Err: &mcp.JSONRPCError{
+					ErrCode:    -32602,
+					ErrMessage: "Invalid params",
 				},
 			}
 		}
@@ -231,9 +231,9 @@ func (s *SSEServer) handleToolsCall(request *mcp.JSONRPCRequest) interface{} {
 			return mcp.JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
-				Error: &mcp.JSONRPCError{
-					Code:    -32602,
-					Message: "Invalid params",
+				Err: &mcp.JSONRPCError{
+					ErrCode:    -32602,
+					ErrMessage: "Invalid params",
 				},
 			}
 		}
@@ -250,9 +250,9 @@ func (s *SSEServer) handleToolsCall(request *mcp.JSONRPCRequest) interface{} {
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
-			Error: &mcp.JSONRPCError{
-				Code:    -32000,
-				Message: err.Error(),
+			Err: &mcp.JSONRPCError{
+				ErrCode:    -32000,
+				ErrMessage: err.Error(),
 			},
 		}
 	}
@@ -272,9 +272,9 @@ func (s *SSEServer) handleResourcesList(request *mcp.JSONRPCRequest) interface{}
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
-			Error: &mcp.JSONRPCError{
-				Code:    -32000,
-				Message: err.Error(),
+			Err: &mcp.JSONRPCError{
+				ErrCode:    -32000,
+				ErrMessage: err.Error(),
 			},
 		}
 	}
@@ -299,9 +299,9 @@ func (s *SSEServer) handleResourcesRead(request *mcp.JSONRPCRequest) interface{}
 			return mcp.JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
-				Error: &mcp.JSONRPCError{
-					Code:    -32602,
-					Message: "Invalid params",
+				Err: &mcp.JSONRPCError{
+					ErrCode:    -32602,
+					ErrMessage: "Invalid params",
 				},
 			}
 		}
@@ -309,9 +309,9 @@ func (s *SSEServer) handleResourcesRead(request *mcp.JSONRPCRequest) interface{}
 			return mcp.JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
-				Error: &mcp.JSONRPCError{
-					Code:    -32602,
-					Message: "Invalid params",
+				Err: &mcp.JSONRPCError{
+					ErrCode:    -32602,
+					ErrMessage: "Invalid params",
 				},
 			}
 		}
@@ -327,9 +327,9 @@ func (s *SSEServer) handleResourcesRead(request *mcp.JSONRPCRequest) interface{}
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
 			ID:      request.ID,
-			Error: &mcp.JSONRPCError{
-				Code:    -32000,
-				Message: err.Error(),
+			Err: &mcp.JSONRPCError{
+				ErrCode:    -32000,
+				ErrMessage: err.Error(),
 			},
 		}
 	}

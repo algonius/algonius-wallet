@@ -78,7 +78,7 @@ func TestSSEServer_ServeHTTP(t *testing.T) {
 	mcpServer := server.NewMCPServer("Test Server", "1.0.0")
 	logger := zap.NewNop()
 	
-	sseServer := NewSSEServer(mcpServer, logger)
+	sseServer := NewSSEServer(mcpServer, logger, "Test Server", "1.0.0")
 
 	tests := []struct {
 		name           string
@@ -150,7 +150,7 @@ func TestSSEServer_ProcessMCPRequest(t *testing.T) {
 	mcpServer := server.NewMCPServer("Test Server", "1.0.0")
 	logger := zap.NewNop()
 	
-	sseServer := NewSSEServer(mcpServer, logger)
+	sseServer := NewSSEServer(mcpServer, logger, "Test Server", "1.0.0")
 
 	tests := []struct {
 		name     string
@@ -193,12 +193,12 @@ func TestSSEServer_ProcessMCPRequest(t *testing.T) {
 			// Check if response is appropriate type
 			if tt.wantType == "error" {
 				if resp, ok := response.(mcp.JSONRPCResponse); ok {
-					assert.NotNil(t, resp.Error)
-					assert.Equal(t, int64(-32601), resp.Error.Code)
+					assert.NotNil(t, resp.Err)
+					assert.Equal(t, int64(-32601), resp.Err.ErrCode)
 				}
 			} else {
 				if resp, ok := response.(mcp.JSONRPCResponse); ok {
-					assert.Nil(t, resp.Error)
+					assert.Nil(t, resp.Err)
 					assert.NotNil(t, resp.Result)
 				}
 			}
@@ -211,7 +211,7 @@ func TestCreateMCPHandler(t *testing.T) {
 	mcpServer := server.NewMCPServer("Test Server", "1.0.0")
 	logger := zap.NewNop()
 	
-	handler := CreateMCPHandler(mcpServer, logger)
+	handler := CreateMCPHandler(mcpServer, logger, "Test Server", "1.0.0")
 
 	tests := []struct {
 		name        string
@@ -276,7 +276,7 @@ func TestCreateMCPHandler(t *testing.T) {
 func TestSSEServer_WriteSSEEvent(t *testing.T) {
 	logger := zap.NewNop()
 	mcpServer := server.NewMCPServer("Test Server", "1.0.0")
-	sseServer := NewSSEServer(mcpServer, logger)
+	sseServer := NewSSEServer(mcpServer, logger, "Test Server", "1.0.0")
 
 	w := httptest.NewRecorder()
 	
