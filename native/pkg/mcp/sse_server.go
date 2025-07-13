@@ -2,6 +2,7 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,15 +17,19 @@ import (
 
 // SSEServer implements MCP protocol over Server-Sent Events
 type SSEServer struct {
-	mcpServer *server.MCPServer
-	logger    *zap.Logger
+	mcpServer   *server.MCPServer
+	logger      *zap.Logger
+	serverName  string
+	serverVersion string
 }
 
 // NewSSEServer creates a new SSE-based MCP server
-func NewSSEServer(mcpServer *server.MCPServer, logger *zap.Logger) *SSEServer {
+func NewSSEServer(mcpServer *server.MCPServer, logger *zap.Logger, serverName, serverVersion string) *SSEServer {
 	return &SSEServer{
-		mcpServer: mcpServer,
-		logger:    logger,
+		mcpServer:     mcpServer,
+		logger:        logger,
+		serverName:    serverName,
+		serverVersion: serverVersion,
 	}
 }
 
@@ -77,8 +82,8 @@ func (s *SSEServer) handleSSEStream(w http.ResponseWriter, r *http.Request) {
 
 	// Send initial server info
 	serverInfo := map[string]interface{}{
-		"name":         s.mcpServer.Name,
-		"version":      s.mcpServer.Version,
+		"name":         s.serverName,
+		"version":      s.serverVersion,
 		"capabilities": s.getServerCapabilities(),
 	}
 	s.writeSSEEvent(w, "server_info", serverInfo)
@@ -173,8 +178,8 @@ func (s *SSEServer) handleInitialize(request *mcp.JSONRPCRequest) interface{} {
 			"protocolVersion": "2024-11-05",
 			"capabilities":    s.getServerCapabilities(),
 			"serverInfo": map[string]interface{}{
-				"name":    s.mcpServer.Name,
-				"version": s.mcpServer.Version,
+				"name":    s.serverName,
+				"version": s.serverVersion,
 			},
 		},
 	}
@@ -182,13 +187,22 @@ func (s *SSEServer) handleInitialize(request *mcp.JSONRPCRequest) interface{} {
 
 // handleToolsList handles tools/list requests
 func (s *SSEServer) handleToolsList(request *mcp.JSONRPCRequest) interface{} {
-	tools := s.mcpServer.GetTools()
+	ctx := context.Background()
+	result, err := s.mcpServer.ListTools(ctx, mcp.ListToolsRequest{})
+	if err != nil {
+		return mcp.JSONRPCResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &mcp.JSONRPCError{
+				Code:    -32000,
+				Message: err.Error(),
+			},
+		}
+	}
 	return mcp.JSONRPCResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result: map[string]interface{}{
-			"tools": tools,
-		},
+		Result:  result,
 	}
 }
 
@@ -201,7 +215,19 @@ func (s *SSEServer) handleToolsCall(request *mcp.JSONRPCRequest) interface{} {
 	}
 
 	if request.Params != nil {
-		if err := json.Unmarshal(*request.Params, &params); err != nil {
+		// Convert any to JSON bytes then unmarshal to our struct
+		paramsBytes, err := json.Marshal(request.Params)
+		if err != nil {
+			return mcp.JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      request.ID,
+				Error: &mcp.JSONRPCError{
+					Code:    -32602,
+					Message: "Invalid params",
+				},
+			}
+		}
+		if err := json.Unmarshal(paramsBytes, &params); err != nil {
 			return mcp.JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
@@ -213,8 +239,13 @@ func (s *SSEServer) handleToolsCall(request *mcp.JSONRPCRequest) interface{} {
 		}
 	}
 
-	// Call the tool
-	result, err := s.mcpServer.CallTool(params.Name, params.Arguments)
+	// Call the tool using correct API
+	ctx := context.Background()
+	callReq := mcp.CallToolRequest{
+		Name:      params.Name,
+		Arguments: params.Arguments,
+	}
+	result, err := s.mcpServer.CallTool(ctx, callReq)
 	if err != nil {
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
@@ -235,13 +266,22 @@ func (s *SSEServer) handleToolsCall(request *mcp.JSONRPCRequest) interface{} {
 
 // handleResourcesList handles resources/list requests
 func (s *SSEServer) handleResourcesList(request *mcp.JSONRPCRequest) interface{} {
-	resources := s.mcpServer.GetResources()
+	ctx := context.Background()
+	result, err := s.mcpServer.ListResources(ctx, mcp.ListResourcesRequest{})
+	if err != nil {
+		return mcp.JSONRPCResponse{
+			JSONRPC: "2.0",
+			ID:      request.ID,
+			Error: &mcp.JSONRPCError{
+				Code:    -32000,
+				Message: err.Error(),
+			},
+		}
+	}
 	return mcp.JSONRPCResponse{
 		JSONRPC: "2.0",
 		ID:      request.ID,
-		Result: map[string]interface{}{
-			"resources": resources,
-		},
+		Result:  result,
 	}
 }
 
@@ -253,7 +293,19 @@ func (s *SSEServer) handleResourcesRead(request *mcp.JSONRPCRequest) interface{}
 	}
 
 	if request.Params != nil {
-		if err := json.Unmarshal(*request.Params, &params); err != nil {
+		// Convert any to JSON bytes then unmarshal to our struct
+		paramsBytes, err := json.Marshal(request.Params)
+		if err != nil {
+			return mcp.JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      request.ID,
+				Error: &mcp.JSONRPCError{
+					Code:    -32602,
+					Message: "Invalid params",
+				},
+			}
+		}
+		if err := json.Unmarshal(paramsBytes, &params); err != nil {
 			return mcp.JSONRPCResponse{
 				JSONRPC: "2.0",
 				ID:      request.ID,
@@ -265,8 +317,12 @@ func (s *SSEServer) handleResourcesRead(request *mcp.JSONRPCRequest) interface{}
 		}
 	}
 
-	// Read the resource
-	result, err := s.mcpServer.ReadResource(params.URI)
+	// Read the resource using correct API
+	ctx := context.Background()
+	readReq := mcp.ReadResourceRequest{
+		URI: params.URI,
+	}
+	result, err := s.mcpServer.ReadResource(ctx, readReq)
 	if err != nil {
 		return mcp.JSONRPCResponse{
 			JSONRPC: "2.0",
@@ -345,9 +401,9 @@ func SSETransportDetector(r *http.Request) bool {
 }
 
 // CreateMCPHandler creates a handler that supports both HTTP stream and SSE transports
-func CreateMCPHandler(mcpServer *server.MCPServer, logger *zap.Logger) http.HandlerFunc {
+func CreateMCPHandler(mcpServer *server.MCPServer, logger *zap.Logger, serverName, serverVersion string) http.HandlerFunc {
 	// Create SSE server
-	sseServer := NewSSEServer(mcpServer, logger)
+	sseServer := NewSSEServer(mcpServer, logger, serverName, serverVersion)
 	
 	// Create HTTP stream server
 	streamServer := server.NewStreamableHTTPServer(mcpServer)
