@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -160,18 +161,32 @@ func main() {
 	swapTokensTool := tools.NewSwapTokensTool(walletManager)
 	mcp.RegisterTool(s, swapTokensTool)
 
-	// Start HTTP MCP server in a goroutine
+	// Start HTTP MCP server with SSE support in a goroutine
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		httpServer := server.NewStreamableHTTPServer(s)
+		
+		// Create combined handler that supports both HTTP stream and SSE transports
+		mcpHandler := mcp.CreateMCPHandler(s, logr)
+		
+		// Set up HTTP server with multiple endpoints
+		mux := http.NewServeMux()
+		mux.HandleFunc("/mcp", mcpHandler)              // Main MCP endpoint with auto-detection
+		mux.HandleFunc("/mcp/sse", mcpHandler)          // Explicit SSE endpoint
+		mux.HandleFunc("/mcp/stream", mcpHandler)       // Explicit HTTP stream endpoint
+		
 		port := os.Getenv("SSE_PORT")
 		if port == "" {
 			port = ":9444"
 		}
-		logr.Info("Starting MCP HTTP server", zap.String("port", port), zap.String("endpoint", "/mcp"))
-		if err := httpServer.Start(port); err != nil {
+		
+		logr.Info("Starting MCP server with dual transport support", 
+			zap.String("port", port), 
+			zap.String("endpoints", "/mcp, /mcp/sse, /mcp/stream"),
+			zap.String("transports", "HTTP stream + SSE"))
+		
+		if err := http.ListenAndServe(port, mux); err != nil {
 			logr.Error("HTTP Server error", zap.Error(err))
 			os.Exit(1)
 		}
