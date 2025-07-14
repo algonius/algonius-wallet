@@ -23,6 +23,9 @@ type Logger interface {
 
 	// Utility methods for common patterns
 	Sync() error // Flush any buffered log entries
+	
+	// Get underlying zap.Logger for compatibility
+	ZapLogger() *zap.Logger
 }
 
 // ZapLogger wraps zap.Logger to implement our Logger interface
@@ -66,6 +69,11 @@ func (l *ZapLogger) With(fields ...zap.Field) Logger {
 // Sync flushes any buffered log entries
 func (l *ZapLogger) Sync() error {
 	return l.Logger.Sync()
+}
+
+// ZapLogger returns the underlying zap.Logger instance
+func (l *ZapLogger) ZapLogger() *zap.Logger {
+	return l.Logger
 }
 
 // NewLogger creates a new logger for the given module

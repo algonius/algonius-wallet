@@ -168,7 +168,7 @@ func main() {
 		defer wg.Done()
 		
 		// Create combined handler that supports both HTTP stream and SSE transports
-		mcpHandler := mcp.CreateMCPHandler(s, logr, "Algonius Native Host", "0.1.0")
+		mcpHandler := mcp.CreateMCPHandler(s, logr.ZapLogger(), "Algonius Native Host", "0.1.0")
 		
 		// Set up HTTP server with multiple endpoints
 		mux := http.NewServeMux()

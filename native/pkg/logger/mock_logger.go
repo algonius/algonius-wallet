@@ -49,6 +49,12 @@ func (l *MockLogger) With(fields ...zap.Field) Logger {
 	return l
 }
 
+// ZapLogger returns a basic zap logger for testing compatibility
+func (l *MockLogger) ZapLogger() *zap.Logger {
+	// Return a no-op logger for testing
+	return zap.NewNop()
+}
+
 // NewMockLogger creates a new MockLogger.
 func NewMockLogger() *MockLogger {
 	return &MockLogger{}
