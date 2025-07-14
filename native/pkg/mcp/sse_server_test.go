@@ -2,10 +2,12 @@
 package mcp
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/stretchr/testify/assert"
@@ -86,12 +88,14 @@ func TestSSEServer_ServeHTTP(t *testing.T) {
 		headers        map[string]string
 		expectedStatus int
 		checkResponse  func(t *testing.T, body string)
+		streaming      bool
 	}{
 		{
 			name:           "GET request for SSE stream",
 			method:         "GET",
 			headers:        map[string]string{},
 			expectedStatus: http.StatusOK,
+			streaming:      true,
 			checkResponse: func(t *testing.T, body string) {
 				assert.Contains(t, body, "event: connected")
 				assert.Contains(t, body, "event: server_info")
@@ -126,7 +130,32 @@ func TestSSEServer_ServeHTTP(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			sseServer.ServeHTTP(w, req)
+			
+			if tt.streaming {
+				// For streaming requests, we need to handle the infinite loop
+				// We'll test the initial response by using a context with timeout
+				ctx, cancel := context.WithTimeout(req.Context(), 100*time.Millisecond)
+				defer cancel()
+				req = req.WithContext(ctx)
+				
+				// Use a goroutine to handle the streaming request
+				done := make(chan bool)
+				go func() {
+					sseServer.ServeHTTP(w, req)
+					done <- true
+				}()
+				
+				// Wait for either completion or timeout
+				select {
+				case <-done:
+					// Request completed (context was cancelled)
+				case <-time.After(200 * time.Millisecond):
+					// Test timeout - this is expected for streaming connections
+					t.Log("Streaming request timed out as expected")
+				}
+			} else {
+				sseServer.ServeHTTP(w, req)
+			}
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
@@ -200,7 +229,30 @@ func TestCreateMCPHandler(t *testing.T) {
 			req := tt.setupReq()
 			w := httptest.NewRecorder()
 
-			handler(w, req)
+			if tt.expectSSE {
+				// For SSE requests, use context with timeout to avoid hanging
+				ctx, cancel := context.WithTimeout(req.Context(), 100*time.Millisecond)
+				defer cancel()
+				req = req.WithContext(ctx)
+				
+				// Use a goroutine to handle the streaming request
+				done := make(chan bool)
+				go func() {
+					handler(w, req)
+					done <- true
+				}()
+				
+				// Wait for either completion or timeout
+				select {
+				case <-done:
+					// Request completed (context was cancelled)
+				case <-time.After(200 * time.Millisecond):
+					// Test timeout - this is expected for streaming connections
+					t.Log("SSE request timed out as expected")
+				}
+			} else {
+				handler(w, req)
+			}
 
 			// Check response based on expected transport
 			if tt.expectSSE {
