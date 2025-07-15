@@ -75,6 +75,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ success: false, error: error.message });
           });
         return true;
+        
+      case "native_rpc":
+        // Handle native messaging RPC requests
+        handleNativeRpc(request, sender, sendResponse);
+        return true;
     }
   }
   
@@ -87,6 +92,53 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Keep service worker active
   return true;
 });
+
+/**
+ * Handle native messaging RPC requests from popup
+ */
+async function handleNativeRpc(
+  request: unknown,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: unknown) => void
+) {
+  try {
+    if (!mcpHostManager.getStatus().isConnected) {
+      sendResponse({ error: { message: 'MCP Host not connected' } });
+      return;
+    }
+
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      !("method" in request) ||
+      !("params" in request)
+    ) {
+      sendResponse({ error: { message: "Invalid native RPC request" } });
+      return;
+    }
+
+    const { method, params } = request as { method: string; params: unknown };
+
+    // Forward the request to MCP Host via RPC
+    const response = await mcpHostManager.rpcRequest({
+      method,
+      params
+    });
+
+    if (response.error) {
+      sendResponse({ error: response.error });
+    } else {
+      sendResponse(response.result);
+    }
+  } catch (error) {
+    console.error('Native RPC request failed:', error);
+    sendResponse({ 
+      error: { 
+        message: error instanceof Error ? error.message : String(error) 
+      } 
+    });
+  }
+}
 
 /**
  * Handle Web3 provider requests from content scripts
