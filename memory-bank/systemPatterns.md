@@ -8,18 +8,21 @@ Algonius Wallet implements a three-tier architecture with clear separation of co
 ┌─────────────────┐                    ┌─────────────────┐
 │   AI Agent      │                    │  Browser Ext    │
 │ (Claude/GPT)    │◄─── MCP/HTTP ────► │                 │
-└─────────────────┘                    └─────────┬───────┘
+│  - Existing     │     :9444/mcp      │                 │
+│  - Cline/SSE    │◄─── MCP/SSE ──────► │                 │
+└─────────────────┘     :9444/mcp/sse  └─────────┬───────┘
          │                                       │
-         │ HTTP/SSE                              │ Native
-         │ :8080                                 │ Messaging
+         │ Unified HTTP/SSE                      │ Native
+         │ Port :9444                            │ Messaging
          ▼                                       ▼
 ┌──────────────────────────────────────────────────────┐
 │             Native Host App (Go)                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐ │
-│  │ MCP Server  │ │ HTTP Server │ │ Wallet Manager  │ │
-│  │ - Tools     │ │ - REST API  │ │ - Multi-chain   │ │
-│  │ - Resources │ │ - SSE       │ │ - Private Keys  │ │
-│  └─────────────┘ └─────────────┘ └─────────────────┘ │
+│  ┌──────────────────┐ ┌─────────────┐ ┌─────────────┐ │
+│  │ Unified MCP      │ │ HTTP Server │ │ Wallet Mgr  │ │
+│  │ - Streamable HTTP│ │ - REST API  │ │ Multi-chain │ │
+│  │ - Pure SSE       │ │ - SSE       │ │ Private Keys│ │
+│  │ - Dual Transport │ │ - Unified   │ │ - Security  │ │
+│  └──────────────────┘ └─────────────┘ └─────────────┘ │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -27,8 +30,12 @@ Algonius Wallet implements a three-tier architecture with clear separation of co
 
 ### 1. Native Host Components
 
-- **MCP Server**: Exposes tools and resources for AI Agent interaction (never exposes sensitive wallet operations)
-- **HTTP Server**: Provides REST API and SSE endpoints for real-time communication (for AI Agent only)
+- **Unified MCP Server**: Exposes tools and resources via dual transport protocols
+  - **Streamable HTTP**: Compatible with existing MCP clients (`/mcp`)
+  - **Pure SSE**: Compatible with SSE-only clients like Cline (`/mcp/sse`, `/mcp/message`)
+  - **Transport Agnostic**: Same MCP server instance serves both protocols
+  - **Security**: Never exposes sensitive wallet operations via either transport
+- **HTTP Server**: Provides REST API and unified transport endpoints (for AI Agent only)
 - **Wallet Manager**: Handles multi-chain wallet operations and private key management
 - **Event Broadcaster**: Manages real-time event distribution via SSE (for AI Agent only)
 - **Native Messaging**: Handles all communication with Browser Extension, including all sensitive wallet operations (import/export/backup)
@@ -178,11 +185,38 @@ Algonius Wallet implements a three-tier architecture with clear separation of co
 
 ## Critical Implementation Paths
 
-### MCP Tool Implementation Pattern
+### Unified MCP Server Implementation Pattern
 
 **All code comments must be written in English. This is a strict team convention for all source files and documentation code blocks.**
 
-MCP tools follow a consistent implementation pattern:
+The unified MCP server follows a dual-transport architecture pattern:
+
+```go
+// Unified server setup in main.go
+func setupUnifiedMCPServer(mcpServer *server.MCPServer, port string) *http.Server {
+    mux := http.NewServeMux()
+    
+    // Streamable HTTP - compatible with existing clients
+    streamableServer := server.NewStreamableHTTPServer(mcpServer, 
+        server.WithEndpointPath("/mcp"))
+    mux.Handle("/mcp", streamableServer)
+    
+    // Pure SSE - compatible with Cline and other SSE-only clients
+    sseServer := server.NewSSEServer(mcpServer,
+        server.WithStaticBasePath("/mcp"),
+        server.WithSSEEndpoint("/sse"),
+        server.WithMessageEndpoint("/message"),
+        server.WithUseFullURLForMessageEndpoint(false))
+    mux.Handle("/mcp/sse", sseServer.SSEHandler())
+    mux.Handle("/mcp/message", sseServer.MessageHandler())
+    
+    return &http.Server{Addr: port, Handler: mux}
+}
+```
+
+### MCP Tool Implementation Pattern
+
+MCP tools follow a consistent implementation pattern across both transports:
 
 ```go
 // Tool definition
@@ -197,11 +231,11 @@ type MCPTools struct {
     // No import_wallet here; all import/export/backup is via Native Messaging only
 }
 
-// Tool handler implementation
+// Tool handler implementation (works with both HTTP and SSE)
 func (s *MCPServer) HandleGetBalance(params map[string]interface{}) (*ToolResult, error) {
     // Parameter validation
-    // Business logic implementation
-    // Return formatted result
+    // Business logic implementation  
+    // Return formatted result (same for both transports)
 }
 ```
 
@@ -226,6 +260,19 @@ func (eb *EventBroadcaster) Broadcast(event *Event) {
 
 ## Additional Notes
 
+### Transport Layer Compatibility
+
+- **Dual Transport Support**: Native Host supports both HTTP Streamable and Pure SSE transports simultaneously
+- **Endpoint Mapping**:
+  - `/mcp` → Streamable HTTP (existing clients, backward compatible)
+  - `/mcp/sse` → Pure SSE connection (Cline, SSE-only clients)  
+  - `/mcp/message` → SSE message endpoint for communication
+- **Client Testing**: Both transports tested with identical functionality and results
+- **Official SSE Integration**: Uses `mark3labs/mcp-go/client/sse.go` for reliable SSE client implementation
+
+### Security & Communication Boundaries
+
 - All event flows between Browser Extension and Native Host use Chrome Native Messaging, not SSE.
 - All sensitive wallet operations (import, export, backup, restore, set password) are strictly UI-gated and handled via Native Messaging, never exposed to MCP tools or AI Agent.
 - The system is designed for extensibility, security, and strict separation of authority between AI Agent, Browser Extension, and Native Host.
+- **GitHub Issue #4 RESOLVED**: SSE transport layer compatibility fully implemented and tested.
