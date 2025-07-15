@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -29,6 +30,30 @@ type HostState struct {
 
 func makeTimestamp() int64 {
 	return time.Now().Unix()
+}
+
+// setupUnifiedMCPServer creates a unified HTTP server supporting multiple MCP transport protocols
+func setupUnifiedMCPServer(mcpServer *server.MCPServer, port string) *http.Server {
+	mux := http.NewServeMux()
+	
+	// Streamable HTTP - compatible with existing clients
+	streamableServer := server.NewStreamableHTTPServer(mcpServer, 
+		server.WithEndpointPath("/mcp"))
+	mux.Handle("/mcp", streamableServer)
+	
+	// Pure SSE - compatible with Cline and other SSE-only clients
+	sseServer := server.NewSSEServer(mcpServer,
+		server.WithStaticBasePath("/mcp"),
+		server.WithSSEEndpoint("/sse"),
+		server.WithMessageEndpoint("/message"),
+		server.WithUseFullURLForMessageEndpoint(false)) // Use relative paths
+	mux.Handle("/mcp/sse", sseServer.SSEHandler())
+	mux.Handle("/mcp/message", sseServer.MessageHandler())
+	
+	return &http.Server{
+		Addr:    port,
+		Handler: mux,
+	}
 }
 
 func main() {
@@ -160,19 +185,21 @@ func main() {
 	swapTokensTool := tools.NewSwapTokensTool(walletManager)
 	mcp.RegisterTool(s, swapTokensTool)
 
-	// Start HTTP MCP server in a goroutine
+	// Start unified MCP server with multiple transport protocols
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		httpServer := server.NewStreamableHTTPServer(s)
 		port := os.Getenv("SSE_PORT")
 		if port == "" {
 			port = ":9444"
 		}
-		logr.Info("Starting MCP HTTP server", zap.String("port", port), zap.String("endpoint", "/mcp"))
-		if err := httpServer.Start(port); err != nil {
-			logr.Error("HTTP Server error", zap.Error(err))
+		unifiedServer := setupUnifiedMCPServer(s, port)
+		logr.Info("Starting unified MCP server", 
+			zap.String("port", port),
+			zap.Strings("endpoints", []string{"/mcp", "/mcp/sse", "/mcp/message"}))
+		if err := unifiedServer.ListenAndServe(); err != nil {
+			logr.Error("Unified MCP Server error", zap.Error(err))
 			os.Exit(1)
 		}
 	}()

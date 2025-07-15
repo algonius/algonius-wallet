@@ -322,6 +322,10 @@ func (env *McpHostTestEnvironment) GetHostProcess() *exec.Cmd {
 	return env.hostProcess
 }
 
+func (env *McpHostTestEnvironment) GetBaseURL() string {
+	return env.baseURL
+}
+
 func (env *McpHostTestEnvironment) Cleanup() error {
 	var errors []error
 
