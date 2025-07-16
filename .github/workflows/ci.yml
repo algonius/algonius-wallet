@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Build and test native host
+  native-host:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Build native host
+        run: make build
+
+      - name: Lint native host
+        run: make lint
+
+      - name: Test native host
+        run: make test
+
+      - name: Upload native host binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-host-binary
+          path: native/bin/
+          retention-days: 1
+
+  # Build and test extension (without e2e)
+  extension:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint extension
+        run: npm run lint
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Test extension (unit tests)
+        run: npm run test:ci
+
+      - name: Upload extension build
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-build
+          path: dist/
+          retention-days: 1
+
+  # E2E tests that require both native host and extension
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [native-host, extension]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download native host binary
+        uses: actions/download-artifact@v4
+        with:
+          name: native-host-binary
+          path: native/bin/
+
+      - name: Download extension build
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-build
+          path: dist/
+
+      - name: Make native host binary executable
+        run: chmod +x native/bin/*
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start native host in background
+        run: |
+          # Start the native host in background for e2e tests
+          cd native
+          ./bin/algonius-wallet-native-host &
+          echo $! > native-host.pid
+          # Wait a moment for it to start
+          sleep 2
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Stop native host
+        if: always()
+        run: |
+          if [ -f native/native-host.pid ]; then
+            kill $(cat native/native-host.pid) || true
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
