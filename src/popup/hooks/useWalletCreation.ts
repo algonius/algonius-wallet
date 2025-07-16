@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useNativeMessaging } from './useNativeMessaging';
-import { WalletCreationParams, WalletCreationResult, SupportedChain } from '../types/wallet';
+import { WalletCreationParams, WalletCreationResult } from '../types/wallet';
 import { validatePassword, isPasswordValid } from '../utils/validation';
 import { generateMnemonic } from '../utils/mnemonicUtils';
 
@@ -149,14 +149,14 @@ export function useWalletCreation() {
   /**
    * Validates if the current step can proceed
    */
-  const canProceed = useCallback((step: string, data?: any): boolean => {
+  const canProceed = useCallback((step: string, data?: { password?: string }): boolean => {
     switch (step) {
       case 'mnemonic':
         return state.mnemonic.length > 0;
       case 'backup':
         return state.isBackupConfirmed;
       case 'password':
-        return data?.password && isPasswordValid(data.password);
+        return Boolean(data?.password && isPasswordValid(data.password));
       default:
         return true;
     }

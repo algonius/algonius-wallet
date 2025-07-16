@@ -50,11 +50,11 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
     }
   }, [passwordIsValid, passwordsMatch, showConfirmField, onValidationChange]);
 
-  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onChange(e.target.value);
   }, [onChange]);
 
-  const handleConfirmPasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleConfirmPasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (onConfirmPasswordChange) {
       onConfirmPasswordChange(e.target.value);
     }

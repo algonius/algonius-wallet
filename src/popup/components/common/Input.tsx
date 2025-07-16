@@ -7,6 +7,7 @@ export interface InputProps {
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   type?: 'text' | 'password' | 'email' | 'number';
   disabled?: boolean;
   readOnly?: boolean;
@@ -30,6 +31,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
       onChange,
       onBlur,
       onFocus,
+      onPaste,
       type = 'text',
       disabled = false,
       readOnly = false,
@@ -41,8 +43,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
       rows = 3,
       className = '',
       autoComplete,
-      autoFocus = false,
-      ...props
+      autoFocus = false
     },
     ref
   ) => {
@@ -82,8 +83,6 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
       className
     ].join(' ');
 
-    const InputComponent = multiline ? 'textarea' : 'input';
-
     return (
       <div className={fullWidth ? 'w-full' : ''}>
         {label && (
@@ -92,23 +91,40 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
             {required && <span className="text-red-500 ml-1">*</span>}
           </label>
         )}
-        <InputComponent
-          ref={ref as any}
-          className={inputClasses}
-          placeholder={placeholder}
-          value={value}
-          onChange={onChange}
-          onBlur={onBlur}
-          onFocus={onFocus}
-          type={multiline ? undefined : type}
-          disabled={disabled}
-          readOnly={readOnly}
-          required={required}
-          autoComplete={autoComplete}
-          autoFocus={autoFocus}
-          rows={multiline ? rows : undefined}
-          {...props}
-        />
+        {multiline ? (
+          <textarea
+            ref={ref as React.ForwardedRef<HTMLTextAreaElement>}
+            className={inputClasses}
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            onBlur={onBlur}
+            onFocus={onFocus}
+            onPaste={onPaste}
+            disabled={disabled}
+            readOnly={readOnly}
+            required={required}
+            autoFocus={autoFocus}
+            rows={rows}
+          />
+        ) : (
+          <input
+            ref={ref as React.ForwardedRef<HTMLInputElement>}
+            className={inputClasses}
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            onBlur={onBlur}
+            onFocus={onFocus}
+            onPaste={onPaste}
+            type={type}
+            disabled={disabled}
+            readOnly={readOnly}
+            required={required}
+            autoComplete={autoComplete}
+            autoFocus={autoFocus}
+          />
+        )}
         {(error || helperText) && (
           <p className={`mt-1 text-xs ${error ? 'text-red-600' : 'text-gray-500'}`}>
             {error || helperText}

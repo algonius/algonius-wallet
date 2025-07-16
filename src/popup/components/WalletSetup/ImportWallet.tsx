@@ -60,7 +60,7 @@ export const ImportWallet: React.FC<ImportWalletProps> = ({
     proceedToPassword();
   }, [proceedToPassword]);
 
-  const handleDerivationPathChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDerivationPathChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     updateDerivationPath(e.target.value);
   }, [updateDerivationPath]);
 

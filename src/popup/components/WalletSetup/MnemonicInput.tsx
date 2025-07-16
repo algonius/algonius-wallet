@@ -49,7 +49,7 @@ export const MnemonicInput: React.FC<MnemonicInputProps> = ({
     }
   }, [value, onValidationChange]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const sanitized = sanitizeMnemonic(e.target.value);
     onChange(sanitized);
   }, [onChange]);
@@ -62,7 +62,7 @@ export const MnemonicInput: React.FC<MnemonicInputProps> = ({
     setIsFocused(false);
   }, []);
 
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
     const sanitized = sanitizeMnemonic(pastedText);

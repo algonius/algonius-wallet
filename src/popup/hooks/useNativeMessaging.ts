@@ -1,7 +1,7 @@
 // Hook for native messaging communication
 
 import { useCallback } from 'react';
-import { WalletCreationParams, WalletImportParams, WalletOperationResponse } from '../types/wallet';
+import { WalletCreationParams, WalletImportParams, WalletOperationResponse, WalletCreationResult, WalletImportResult } from '../types/wallet';
 
 /**
  * Hook for communicating with the native messaging system
@@ -40,7 +40,7 @@ export function useNativeMessaging() {
       const response = await sendRpcRequest('create_wallet', params);
       return {
         success: true,
-        result: response as any
+        result: response as WalletCreationResult
       };
     } catch (error) {
       return {
@@ -61,7 +61,7 @@ export function useNativeMessaging() {
       const response = await sendRpcRequest('import_wallet', params);
       return {
         success: true,
-        result: response as any
+        result: response as WalletImportResult
       };
     } catch (error) {
       return {

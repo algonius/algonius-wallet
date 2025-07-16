@@ -26,8 +26,7 @@ export const CreateWallet: React.FC<CreateWalletProps> = ({
     resetState,
     goBack,
     proceedToBackup,
-    canProceed,
-    validatePassword
+    canProceed
   } = useWalletCreation();
 
   const [selectedChain, setSelectedChain] = useState<SupportedChain>('ethereum');
