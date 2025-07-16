@@ -38,7 +38,7 @@ test.describe('Basic Extension Tests', () => {
     });
   });
 
-  test('Extension service worker is running', async ({ context, extensionId: _extensionId }) => {
+  test('Extension service worker is running', async ({ context, extensionId }) => {
     await test.step('Check service worker', async () => {
       // Get service workers
       const serviceWorkers = context.serviceWorkers();
