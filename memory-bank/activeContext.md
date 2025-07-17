@@ -2,6 +2,25 @@
 
 ## Current Focus
 
+### 2025-07-17 - Get Pending Transactions Tool Implementation
+
+**🎯 MAJOR ACHIEVEMENT: GitHub Issue #8 - Get Pending Transactions MCP Tool**
+
+- **Implemented get_pending_transactions MCP tool** solving GitHub issue #8
+- **Comprehensive filtering and pagination support**:
+  - Filter by chain (ethereum, bsc, solana)
+  - Filter by wallet address (from or to)
+  - Filter by transaction type (transfer, swap, contract)
+  - Pagination with limit (max 100) and offset parameters
+- **Complete PendingTransaction data structure** with all required fields:
+  - Transaction hash, chain, from/to addresses, amount, token
+  - Status, confirmations, gas fee, priority, estimated confirmation time
+  - Block number, nonce, submission and last checked timestamps
+- **Wallet manager integration** with GetPendingTransactions method
+- **Mock data for development** demonstrating various transaction states
+- **Integration tests** covering all filtering scenarios and edge cases
+- **Registered in main.go** alongside other MCP tools
+
 ### 2025-07-15 - Unified MCP Transport Layer Implementation
 
 **🎯 MAJOR ACHIEVEMENT: Unified MCP Server with Multi-Transport Support**

@@ -34,6 +34,10 @@ func (m *MockWalletManager) EstimateGas(ctx context.Context, chain, from, to, am
 	return 21000, "20", nil
 }
 
+func (m *MockWalletManager) GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*wallet.PendingTransaction, error) {
+	return []*wallet.PendingTransaction{}, nil
+}
+
 func TestConfirmTransactionTool_GetMeta(t *testing.T) {
 	mockManager := &MockWalletManager{}
 	tool := NewConfirmTransactionTool(mockManager)
