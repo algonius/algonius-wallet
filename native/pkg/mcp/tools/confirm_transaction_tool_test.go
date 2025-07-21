@@ -38,6 +38,10 @@ func (m *MockWalletManager) GetPendingTransactions(ctx context.Context, chain, a
 	return []*wallet.PendingTransaction{}, nil
 }
 
+func (m *MockWalletManager) RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]wallet.TransactionRejectionResult, error) {
+	return []wallet.TransactionRejectionResult{}, nil
+}
+
 func TestConfirmTransactionTool_GetMeta(t *testing.T) {
 	mockManager := &MockWalletManager{}
 	tool := NewConfirmTransactionTool(mockManager)

@@ -17,12 +17,18 @@ type WalletManager struct {
 	// For demo purposes, we'll store a simple wallet status
 	// In a real implementation, this would be stored securely
 	currentWallet *WalletStatus
+	// Audit logger for security events
+	auditLogger *AuditLogger
+	// Mock storage for pending transactions
+	pendingTxs []*PendingTransaction
 }
 
 // NewWalletManager constructs a new WalletManager.
 func NewWalletManager() *WalletManager {
 	return &WalletManager{
 		chainFactory: chain.NewChainFactory(),
+		auditLogger:  NewAuditLogger(),
+		pendingTxs:   make([]*PendingTransaction, 0),
 	}
 }
 
@@ -426,4 +432,101 @@ func (wm *WalletManager) generateMockPendingTransactions(chain, address, transac
 	}
 	
 	return filteredTxs
+}
+
+// RejectTransactions rejects multiple pending transactions with specified reasons
+func (wm *WalletManager) RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]TransactionRejectionResult, error) {
+	results := make([]TransactionRejectionResult, 0, len(transactionIds))
+	
+	for _, txHash := range transactionIds {
+		result := TransactionRejectionResult{
+			TransactionHash: txHash,
+			Success:         false,
+		}
+
+		// Find the transaction in mock data
+		var foundTx *PendingTransaction
+		for _, mockTx := range wm.generateMockPendingTransactions("", "", "") {
+			if mockTx.Hash == txHash {
+				foundTx = mockTx
+				break
+			}
+		}
+
+		if foundTx == nil {
+			result.ErrorMessage = "transaction not found"
+			results = append(results, result)
+			continue
+		}
+
+		// Check if transaction is already rejected or completed
+		if foundTx.Status == "rejected" {
+			result.ErrorMessage = "transaction already rejected"
+			results = append(results, result)
+			continue
+		}
+
+		if foundTx.Status == "confirmed" {
+			result.ErrorMessage = "cannot reject confirmed transaction"
+			results = append(results, result)
+			continue
+		}
+
+		// Validate transaction ownership (basic check)
+		if wm.currentWallet != nil && foundTx.From != wm.currentWallet.Address {
+			result.ErrorMessage = "unauthorized: transaction does not belong to current wallet"
+			results = append(results, result)
+			continue
+		}
+
+		// Perform the rejection
+		rejectionTime := time.Now()
+		
+		// Update transaction status
+		foundTx.Status = "rejected"
+		foundTx.RejectedAt = &rejectionTime
+		foundTx.RejectionReason = reason
+		foundTx.RejectionDetails = details
+
+		// Log to audit trail if requested
+		var auditLogId string
+		if auditLog {
+			logId, err := wm.auditLogger.LogTransactionRejection(txHash, reason, details, foundTx.From)
+			if err != nil {
+				result.ErrorMessage = fmt.Sprintf("audit logging failed: %v", err)
+				results = append(results, result)
+				continue
+			}
+			auditLogId = logId
+			foundTx.RejectionAuditLogId = auditLogId
+		}
+
+		// Send user notification if requested
+		if notifyUser {
+			// In a real implementation, this would send actual notifications
+			// For now, we just simulate the action
+			_ = wm.sendRejectionNotification(foundTx, reason, details)
+		}
+
+		// Mark as successful
+		result.Success = true
+		result.RejectedAt = rejectionTime
+		result.AuditLogId = auditLogId
+
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// sendRejectionNotification simulates sending a notification to the user
+func (wm *WalletManager) sendRejectionNotification(tx *PendingTransaction, reason, details string) error {
+	// In a real implementation, this would:
+	// - Send email notification
+	// - Send push notification
+	// - Log notification to user activity feed
+	// - Possibly send SMS for high-value transactions
+	
+	// For now, we just simulate success
+	return nil
 }
