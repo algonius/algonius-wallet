@@ -9,4 +9,5 @@ type IWalletManager interface {
 	GetStatus(ctx context.Context) (*WalletStatus, error)
 	SendTransaction(ctx context.Context, chain, from, to, amount, token string) (txHash string, err error)
 	EstimateGas(ctx context.Context, chain, from, to, amount, token string) (gasLimit uint64, gasPrice string, err error)
+	GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*PendingTransaction, error)
 }

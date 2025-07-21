@@ -43,6 +43,10 @@ func (m *MockWalletManagerForImport) EstimateGas(ctx context.Context, chain, fro
 	return 21000, "20", nil
 }
 
+func (m *MockWalletManagerForImport) GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*wallet.PendingTransaction, error) {
+	return []*wallet.PendingTransaction{}, nil
+}
+
 // ImportError helps simulate specific error types
 type ImportError struct {
 	Reason string

@@ -221,13 +221,14 @@ MCP tools follow a consistent implementation pattern across both transports:
 ```go
 // Tool definition
 type MCPTools struct {
-    CreateWallet       Tool `json:"create_wallet"`
-    GetBalance         Tool `json:"get_balance"`
-    SendTransaction    Tool `json:"send_transaction"`
-    ConfirmTransaction Tool `json:"confirm_transaction"`
-    GetTransactions    Tool `json:"get_transactions"`
-    SignMessage        Tool `json:"sign_message"`
-    SwapTokens         Tool `json:"swap_tokens"`
+    CreateWallet            Tool `json:"create_wallet"`
+    GetBalance              Tool `json:"get_balance"`
+    SendTransaction         Tool `json:"send_transaction"`
+    ConfirmTransaction      Tool `json:"confirm_transaction"`
+    GetTransactions         Tool `json:"get_transactions"`
+    GetPendingTransactions  Tool `json:"get_pending_transactions"`
+    SignMessage             Tool `json:"sign_message"`
+    SwapTokens              Tool `json:"swap_tokens"`
     // No import_wallet here; all import/export/backup is via Native Messaging only
 }
 

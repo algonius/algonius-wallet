@@ -298,3 +298,132 @@ func (wm *WalletManager) EstimateGas(ctx context.Context, chain, from, to, amoun
 	// Estimate gas using the chain implementation
 	return chainImpl.EstimateGas(ctx, from, to, amount, token)
 }
+
+// GetPendingTransactions retrieves pending transactions with optional filtering and pagination
+func (wm *WalletManager) GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*PendingTransaction, error) {
+	// For now, we'll return mock pending transactions for development purposes
+	// In a real implementation, this would:
+	// 1. Query the blockchain network for pending transactions
+	// 2. Filter by owned wallet addresses
+	// 3. Apply the specified filters (chain, address, type)
+	// 4. Return paginated results
+	
+	// Validate parameters
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	
+	// Generate mock pending transactions for development
+	mockTxs := wm.generateMockPendingTransactions(chain, address, transactionType)
+	
+	// Apply pagination
+	start := offset
+	if start >= len(mockTxs) {
+		return []*PendingTransaction{}, nil
+	}
+	
+	end := start + limit
+	if end > len(mockTxs) {
+		end = len(mockTxs)
+	}
+	
+	return mockTxs[start:end], nil
+}
+
+// generateMockPendingTransactions creates mock pending transactions for development
+func (wm *WalletManager) generateMockPendingTransactions(chain, address, transactionType string) []*PendingTransaction {
+	baseTime := time.Now()
+	
+	// Create a variety of mock transactions
+	mockTxs := []*PendingTransaction{
+		{
+			Hash:                      "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456",
+			Chain:                     "ethereum",
+			From:                      "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                        "0x8ba1f109551bD432803012645Hac136c22C4F9B",
+			Amount:                    "0.5",
+			Token:                     "ETH",
+			Type:                      "transfer",
+			Status:                    "pending",
+			Confirmations:             2,
+			RequiredConfirmations:     6,
+			BlockNumber:               18500123,
+			Nonce:                     42,
+			GasFee:                    "0.0021",
+			Priority:                  "medium",
+			EstimatedConfirmationTime: "2-3 minutes",
+			SubmittedAt:               baseTime.Add(-5 * time.Minute),
+			LastChecked:               baseTime.Add(-30 * time.Second),
+		},
+		{
+			Hash:                      "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			Chain:                     "bsc",
+			From:                      "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                        "0x0000000000000000000000000000000000000000",
+			Amount:                    "1000",
+			Token:                     "0x55d398326f99059fF775485246999027B3197955", // USDT contract
+			Type:                      "swap",
+			Status:                    "pending",
+			Confirmations:             0,
+			RequiredConfirmations:     3,
+			BlockNumber:               0,
+			Nonce:                     43,
+			GasFee:                    "0.0008",
+			Priority:                  "high",
+			EstimatedConfirmationTime: "30-60 seconds",
+			SubmittedAt:               baseTime.Add(-2 * time.Minute),
+			LastChecked:               baseTime.Add(-15 * time.Second),
+		},
+		{
+			Hash:                      "0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+			Chain:                     "ethereum",
+			From:                      "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                        "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+			Amount:                    "50",
+			Token:                     "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984", // UNI contract
+			Type:                      "contract",
+			Status:                    "pending",
+			Confirmations:             4,
+			RequiredConfirmations:     6,
+			BlockNumber:               18500125,
+			Nonce:                     44,
+			GasFee:                    "0.0042",
+			Priority:                  "low",
+			EstimatedConfirmationTime: "5-10 minutes",
+			SubmittedAt:               baseTime.Add(-8 * time.Minute),
+			LastChecked:               baseTime.Add(-45 * time.Second),
+		},
+	}
+	
+	// Apply filters
+	var filteredTxs []*PendingTransaction
+	
+	for _, tx := range mockTxs {
+		// Filter by chain
+		if chain != "" && strings.ToLower(tx.Chain) != strings.ToLower(chain) {
+			continue
+		}
+		
+		// Filter by address (from or to)
+		if address != "" && 
+			!strings.EqualFold(tx.From, address) && 
+			!strings.EqualFold(tx.To, address) {
+			continue
+		}
+		
+		// Filter by transaction type
+		if transactionType != "" && strings.ToLower(tx.Type) != strings.ToLower(transactionType) {
+			continue
+		}
+		
+		filteredTxs = append(filteredTxs, tx)
+	}
+	
+	return filteredTxs
+}
