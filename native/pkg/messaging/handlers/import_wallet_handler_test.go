@@ -47,6 +47,10 @@ func (m *MockWalletManagerForImport) GetPendingTransactions(ctx context.Context,
 	return []*wallet.PendingTransaction{}, nil
 }
 
+func (m *MockWalletManagerForImport) RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]wallet.TransactionRejectionResult, error) {
+	return []wallet.TransactionRejectionResult{}, nil
+}
+
 // ImportError helps simulate specific error types
 type ImportError struct {
 	Reason string

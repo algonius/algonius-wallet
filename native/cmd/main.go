@@ -188,6 +188,9 @@ func main() {
 	getPendingTransactionsTool := tools.NewGetPendingTransactionsTool(walletManager)
 	mcp.RegisterTool(s, getPendingTransactionsTool)
 
+	rejectTransactionTool := tools.NewRejectTransactionTool(walletManager)
+	mcp.RegisterTool(s, rejectTransactionTool)
+
 	// Start unified MCP server with multiple transport protocols
 	var wg sync.WaitGroup
 	wg.Add(1)
