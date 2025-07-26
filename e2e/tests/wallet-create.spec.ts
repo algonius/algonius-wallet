@@ -128,6 +128,9 @@ test.describe('Wallet Create E2E Tests', () => {
   });
 
   test('Create wallet with password validation', async ({ context: _context, extensionId, page }) => {
+    // This test may be skipped if the native host is not running or if UI elements are not found
+    // It tests password validation in the wallet creation flow
+    
     await test.step('Navigate to password step', async () => {
       await page.goto(`chrome-extension://${extensionId}${EXTENSION_PAGES.popup}`);
       
