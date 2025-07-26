@@ -20,6 +20,7 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/messaging/handlers"
 	"github.com/algonius/algonius-wallet/native/pkg/process"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
+	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
 	"github.com/mark3labs/mcp-go/server"
 )
 

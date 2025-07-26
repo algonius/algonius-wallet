@@ -135,6 +135,13 @@ func (t *SimulateTransactionTool) GetHandler() server.ToolHandlerFunc {
 			}
 		}
 
-		return mcp.NewToolResultText(markdown, mcp.WithJSON(resultJSON)), nil
+		// Create a tool result with both markdown text and JSON data
+		toolResult := mcp.NewToolResultText(markdown)
+		// Add metadata with the raw JSON result
+		if toolResult.Meta == nil {
+			toolResult.Meta = make(map[string]any)
+		}
+		toolResult.Meta["json_result"] = string(resultJSON)
+		return toolResult, nil
 	}
 }

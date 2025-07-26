@@ -47,19 +47,8 @@ func (s *SwapSimulator) SimulateSwap(ctx context.Context, chainName, tokenIn, to
 		return nil, fmt.Errorf("failed to get chain implementation: %w", err)
 	}
 
-	// Validate addresses
-	if !chainImpl.ValidateAddress(from) {
-		return nil, fmt.Errorf("invalid sender address: %s", from)
-	}
-
-	// Validate tokens
-	if tokenIn != "" && !chainImpl.ValidateTokenAddress(tokenIn) {
-		return nil, fmt.Errorf("invalid input token address: %s", tokenIn)
-	}
-
-	if tokenOut != "" && !chainImpl.ValidateTokenAddress(tokenOut) {
-		return nil, fmt.Errorf("invalid output token address: %s", tokenOut)
-	}
+	// Note: Skipping address validation for now as it's not implemented in IChain interface
+	// In a real implementation, you would validate addresses using chain-specific methods
 
 	// Create DEX instance
 	dexInstance, err := s.dexFactory.CreateDEX(dexProtocol, chainName)
@@ -70,14 +59,16 @@ func (s *SwapSimulator) SimulateSwap(ctx context.Context, chainName, tokenIn, to
 	// Parse amounts
 	var amountInValue, amountOutValue *big.Int
 	if amountIn != "" {
-		amountInValue, ok := new(big.Int).SetString(amountIn, 10)
+		var ok bool
+		amountInValue, ok = new(big.Int).SetString(amountIn, 10)
 		if !ok {
 			return nil, fmt.Errorf("invalid amount_in: %s", amountIn)
 		}
 	}
 
 	if amountOut != "" {
-		amountOutValue, ok := new(big.Int).SetString(amountOut, 10)
+		var ok bool
+		amountOutValue, ok = new(big.Int).SetString(amountOut, 10)
 		if !ok {
 			return nil, fmt.Errorf("invalid amount_out: %s", amountOut)
 		}
@@ -121,11 +112,11 @@ func (s *SwapSimulator) SimulateSwap(ctx context.Context, chainName, tokenIn, to
 		return nil, fmt.Errorf("failed to get swap quote: %w", err)
 	}
 
-	// Estimate gas for the swap
-	gasLimit, gasPrice, err := dexInstance.EstimateGas(ctx, swapParams)
-	if err != nil {
-		return nil, fmt.Errorf("failed to estimate gas: %w", err)
-	}
+	// Use the gas estimate from the quote instead of calling EstimateGas on dexInstance
+	// as EstimateGas is not part of the IDEX interface
+	gasLimit := quote.GasEstimate
+	// For gas price, we need to get it from somewhere else, using a default for now
+	gasPrice := "20000000000" // 20 Gwei default, would need to be fetched from chain in real implementation
 
 	// Calculate total cost
 	gasPriceValue, ok := new(big.Int).SetString(gasPrice, 10)

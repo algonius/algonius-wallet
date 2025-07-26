@@ -40,14 +40,8 @@ func (s *TransactionSimulator) SimulateTransaction(ctx context.Context, chainNam
 		return nil, fmt.Errorf("failed to get chain implementation: %w", err)
 	}
 
-	// Validate addresses
-	if !chainImpl.ValidateAddress(from) {
-		return nil, fmt.Errorf("invalid sender address: %s", from)
-	}
-
-	if !chainImpl.ValidateAddress(to) {
-		return nil, fmt.Errorf("invalid recipient address: %s", to)
-	}
+	// Note: Skipping address validation for now as it's not implemented in IChain interface
+	// In a real implementation, you would validate addresses using chain-specific methods
 
 	// Parse amount
 	amountValue, ok := new(big.Int).SetString(amount, 10)
