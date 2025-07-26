@@ -20,6 +20,7 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/messaging/handlers"
 	"github.com/algonius/algonius-wallet/native/pkg/process"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
+	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
 	"github.com/mark3labs/mcp-go/server"
 )
 
@@ -227,6 +228,13 @@ func main() {
 
 	rejectTransactionTool := tools.NewRejectTransactionTool(walletManager)
 	mcp.RegisterTool(s, rejectTransactionTool)
+
+	// Create chain factory for simulation tools
+	chainFactory := chain.NewChainFactory()
+
+	// Register simulation tools
+	simulateTransactionTool := tools.NewSimulateTransactionTool(walletManager, chainFactory)
+	mcp.RegisterTool(s, simulateTransactionTool)
 
 	// Start unified MCP server with multiple transport protocols
 	var wg sync.WaitGroup
