@@ -128,10 +128,9 @@ jobs:
           cp native/bin/algonius-wallet-host $HOME/.algonius-wallet/bin/
           chmod 755 $HOME/.algonius-wallet/bin/algonius-wallet-host
           
-          # Create the manifest directory
-          sudo mkdir -p /etc/opt/chrome/native-messaging-hosts/
-          
-          # Create a basic manifest for the native host
+          # Install the manifest file
+          mkdir -p $HOME/.algonius-wallet
+          # Create manifest with correct extension ID for testing
           echo '{
             "name": "com.algonius.wallet",
             "description": "Algonius Wallet Native Host",
@@ -140,7 +139,7 @@ jobs:
             "allowed_origins": [
               "chrome-extension://abcdefghijklmnopqrstuvwxyz012345/"
             ]
-          }' | sudo tee /etc/opt/chrome/native-messaging-hosts/com.algonius.wallet.json > /dev/null
+          }' > $HOME/.algonius-wallet/com.algonius.wallet.json
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium

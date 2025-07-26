@@ -1,0 +1,9 @@
+{
+  "name": "com.algonius.wallet",
+  "description": "Algonius Wallet Native Host",
+  "path": "/Users/$(USER)/.algonius-wallet/bin/algonius-wallet-host",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://abcdefghijklmnopqrstuvwxyz012345/"
+  ]
+}
