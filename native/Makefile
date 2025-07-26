@@ -39,6 +39,8 @@ clean:
 	rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 
 install: build
+	@echo "Killing any existing instances..."
+	@-./bin/$(BINARY_NAME) -kill 2>/dev/null || true
 	@echo "Installing native host to $(HOME)/.algonius-wallet/bin/algonius-wallet-host ..."
 	mkdir -p $(HOME)/.algonius-wallet/bin
 	cp ./bin/$(BINARY_NAME) $(HOME)/.algonius-wallet/bin/algonius-wallet-host
@@ -56,4 +58,9 @@ uninstall:
 	sudo rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 	@echo "Native host uninstalled"
 
-.PHONY: all build unit-test integration-test test run clean install uninstall lint
+.PHONY: all build unit-test integration-test test run clean install uninstall lint kill
+
+kill:
+	@echo "Killing any running instances of algonius-wallet-host..."
+	@-pkill -f algonius-wallet-host 2>/dev/null || true
+	@echo "Done."
