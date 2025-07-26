@@ -228,6 +228,13 @@ func main() {
 	rejectTransactionTool := tools.NewRejectTransactionTool(walletManager)
 	mcp.RegisterTool(s, rejectTransactionTool)
 
+	// Create chain factory for simulation tools
+	chainFactory := chain.NewChainFactory()
+
+	// Register simulation tools
+	simulateTransactionTool := tools.NewSimulateTransactionTool(walletManager, chainFactory)
+	mcp.RegisterTool(s, simulateTransactionTool)
+
 	// Start unified MCP server with multiple transport protocols
 	var wg sync.WaitGroup
 	wg.Add(1)
