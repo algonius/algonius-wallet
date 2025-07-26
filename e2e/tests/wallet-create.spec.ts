@@ -2,14 +2,7 @@ import { test, expect } from '../fixtures/extension';
 import { TEST_PASSWORDS, EXTENSION_PAGES } from '../utils/test-data';
 
 test.describe('Wallet Create E2E Tests', () => {
-  test('Create new wallet flow', async ({ context: _context, extensionId, page, nativeHost }) => {
-    // Log native host status
-    if (nativeHost) {
-      console.log('Native host is running for this test');
-    } else {
-      console.log('Native host is not available for this test');
-    }
-
+  test('Create new wallet flow', async ({ context: _context, extensionId, page }) => {
     await test.step('Open extension popup page', async () => {
       await page.goto(`chrome-extension://${extensionId}${EXTENSION_PAGES.popup}`);
       await page.waitForLoadState('networkidle');
@@ -134,14 +127,7 @@ test.describe('Wallet Create E2E Tests', () => {
     });
   });
 
-  test('Create wallet with password validation', async ({ context: _context, extensionId, page, nativeHost }) => {
-    // Log native host status
-    if (nativeHost) {
-      console.log('Native host is running for this test');
-    } else {
-      console.log('Native host is not available for this test');
-    }
-    
+  test('Create wallet with password validation', async ({ context: _context, extensionId, page }) => {
     // This test may be skipped if the native host is not running or if UI elements are not found
     // It tests password validation in the wallet creation flow
     

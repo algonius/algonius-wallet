@@ -121,27 +121,32 @@ jobs:
       - name: Make native host binary executable
         run: chmod +x native/bin/*
 
+      - name: Install native host for the extension
+        run: |
+          # Install the native host in the standard location for Chrome extensions
+          mkdir -p $HOME/.algonius-wallet/bin
+          cp native/bin/algonius-wallet-host $HOME/.algonius-wallet/bin/
+          chmod 755 $HOME/.algonius-wallet/bin/algonius-wallet-host
+          
+          # Create the manifest directory
+          sudo mkdir -p /etc/opt/chrome/native-messaging-hosts/
+          
+          # Create a basic manifest for the native host
+          echo '{
+            "name": "com.algonius.wallet",
+            "description": "Algonius Wallet Native Host",
+            "path": "'"$HOME/.algonius-wallet/bin/algonius-wallet-host"'",
+            "type": "stdio",
+            "allowed_origins": [
+              "chrome-extension://abcdefghijklmnopqrstuvwxyz012345/"
+            ]
+          }' | sudo tee /etc/opt/chrome/native-messaging-hosts/com.algonius.wallet.json > /dev/null
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Start native host in background
-        run: |
-          # Start the native host in background for e2e tests
-          cd native
-          ./bin/algonius-wallet-native-host &
-          echo $! > native-host.pid
-          # Wait a moment for it to start
-          sleep 2
-
       - name: Run E2E tests
         run: npm run test:e2e
-
-      - name: Stop native host
-        if: always()
-        run: |
-          if [ -f native/native-host.pid ]; then
-            kill $(cat native/native-host.pid) || true
-          fi
 
       - name: Upload test results
         if: always()
