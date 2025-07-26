@@ -7,8 +7,19 @@ import { existsSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Function to check if we're in a CI environment
+function isCI(): boolean {
+  return !!process.env.CI;
+}
+
 // Function to install and start native host
 async function setupNativeHost() {
+  // In CI environment, native host should already be set up
+  if (isCI()) {
+    console.log('Running in CI environment, skipping native host setup');
+    return true;
+  }
+
   try {
     // Build native host (adjust path to project root)
     const projectRoot = path.join(__dirname, '../..');
@@ -27,6 +38,12 @@ async function setupNativeHost() {
 
 // Function to start native host process
 function startNativeHostProcess() {
+  // In CI environment, native host should already be running
+  if (isCI()) {
+    console.log('Running in CI environment, skipping native host process start');
+    return Promise.resolve(null);
+  }
+
   return new Promise((resolve, reject) => {
     try {
       // Check if native host binary exists
@@ -107,7 +124,11 @@ export const test = base.extend<{
       if (installed) {
         // Start native host process
         nativeHostProcess = await startNativeHostProcess();
-        console.log('Native host process started');
+        if (nativeHostProcess) {
+          console.log('Native host process started');
+        } else {
+          console.log('Using existing native host setup (CI environment)');
+        }
       } else {
         console.log('Skipping native host setup');
       }
