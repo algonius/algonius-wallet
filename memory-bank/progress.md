@@ -101,6 +101,15 @@
   - [x] Streamable HTTP endpoint for existing clients (`/mcp`)
   - [x] Complete SSE integration test suite
   - [x] Official SSE client integration using `mark3labs/mcp-go/client/sse.go`
+- [x] **GitHub Issue #8: Get Pending Transactions Tool**
+  - [x] Implemented `get_pending_transactions` MCP tool
+  - [x] Comprehensive filtering and pagination support
+  - [x] Integration tests covering all scenarios
+- [x] **GitHub Issue #13: Reject Transaction Tool**
+  - [x] Implemented `reject_transaction` MCP tool
+  - [x] Bulk transaction rejection with standardized reasons
+  - [x] Optional user notifications and audit logging
+  - [x] Comprehensive unit and integration tests
 
 ### Phase 3: Browser Extension 细节优化
 
