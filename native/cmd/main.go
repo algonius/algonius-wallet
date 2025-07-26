@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +18,7 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/tools"
 	"github.com/algonius/algonius-wallet/native/pkg/messaging"
 	"github.com/algonius/algonius-wallet/native/pkg/messaging/handlers"
+	"github.com/algonius/algonius-wallet/native/pkg/process"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -57,6 +59,40 @@ func setupUnifiedMCPServer(mcpServer *server.MCPServer, port string) *http.Serve
 }
 
 func main() {
+	// Define command line flags
+	killFlag := flag.Bool("kill", false, "Kill any existing instances of the native host")
+	flag.Parse()
+	
+	// If kill flag is set, kill existing instances and exit
+	if *killFlag {
+		if err := process.KillExistingProcess(); err != nil {
+			os.Stderr.WriteString("Failed to kill existing process: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		os.Stderr.WriteString("Successfully killed existing instance (if any)\n")
+		os.Exit(0)
+	}
+	
+	// Try to acquire PID file lock to prevent multiple instances
+	locked, err := process.LockPIDFile()
+	if err != nil {
+		os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
+		os.Exit(1)
+	}
+	
+	if !locked {
+		os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
+		os.Exit(1)
+	}
+	
+	// Ensure we unlock the PID file when the program exits
+	defer func() {
+		if err := process.UnlockPIDFile(); err != nil {
+			// Log error but don't fail the program
+			os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
+		}
+	}()
+
 	// Initialize project logger
 	logr, err := logger.NewLogger("main")
 	if err != nil {
