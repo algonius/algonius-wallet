@@ -44,8 +44,11 @@ jobs:
       - name: Lint native host
         run: make lint
 
-      - name: Test native host
-        run: make test
+      - name: Unit test native host
+        run: make unit-test
+
+      - name: Integration test native host
+        run: make integration-test
 
       - name: Upload native host binary
         uses: actions/upload-artifact@v4
