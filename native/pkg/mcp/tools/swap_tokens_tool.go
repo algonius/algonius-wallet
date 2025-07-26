@@ -3,12 +3,15 @@ package tools
 
 import (
 	"context"
+	
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/dex"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -100,16 +103,19 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 
 		// Validate that either amount_in or amount_out is provided
 		if amountInStr == "" && amountOutStr == "" {
-			return mcp.NewToolResultError("either 'amount_in' or 'amount_out' must be specified"), nil
+			toolErr := errors.ValidationError("amount_in/amount_out", "either 'amount_in' or 'amount_out' must be specified")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		if amountInStr != "" && amountOutStr != "" {
-			return mcp.NewToolResultError("only one of 'amount_in' or 'amount_out' should be specified"), nil
+			toolErr := errors.ValidationError("amount_in/amount_out", "only one of 'amount_in' or 'amount_out' should be specified")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Validate chain support
 		if chain != "ethereum" && chain != "bsc" && chain != "eth" {
-			return mcp.NewToolResultError(fmt.Sprintf("unsupported chain: %s. Supported chains: ethereum, bsc", chain)), nil
+			toolErr := errors.TokenNotSupportedError(chain, "all")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Parse amounts
@@ -117,20 +123,23 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		if amountInStr != "" {
 			amountIn, err = t.parseAmount(amountInStr)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("invalid amount_in: %v", err)), nil
+				toolErr := errors.ValidationError("amount_in", fmt.Sprintf("invalid amount_in: %v", err))
+				return toolutils.FormatErrorResult(toolErr), nil
 			}
 		}
 
 		if amountOutStr != "" {
 			amountOut, err = t.parseAmount(amountOutStr)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("invalid amount_out: %v", err)), nil
+				toolErr := errors.ValidationError("amount_out", fmt.Sprintf("invalid amount_out: %v", err))
+				return toolutils.FormatErrorResult(toolErr), nil
 			}
 		}
 
 		// Validate slippage tolerance
 		if slippageTolerance < 0.1 || slippageTolerance > 50.0 {
-			return mcp.NewToolResultError(fmt.Sprintf("slippage_tolerance must be between 0.1 and 50.0, got %.2f", slippageTolerance)), nil
+			toolErr := errors.ValidationError("slippage_tolerance", fmt.Sprintf("slippage_tolerance must be between 0.1 and 50.0, got %.2f", slippageTolerance))
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Calculate deadline timestamp
@@ -139,7 +148,8 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		// Create DEX instance
 		dexInstance, err := t.dexFactory.CreateDEX(dexProtocol, chain)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to create DEX instance: %v", err)), nil
+			toolErr := errors.InternalError("create DEX instance", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Create swap parameters
@@ -158,7 +168,8 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		// Get quote first for validation
 		_, err = dexInstance.GetQuote(ctx, swapParams)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get swap quote: %v", err)), nil
+			toolErr := errors.InternalError("get swap quote", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Perform the swap
@@ -172,7 +183,8 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to execute swap: %v", err)), nil
+			toolErr := errors.InternalError("execute swap", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Format success response
@@ -194,6 +206,7 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
+
 
 // parseAmount parses amount string to big.Int, handling both integer and decimal representations
 func (t *SwapTokensTool) parseAmount(amountStr string) (*big.Int, error) {

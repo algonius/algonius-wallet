@@ -3,8 +3,11 @@ package tools
 
 import (
 	"context"
+	
 	"fmt"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -59,22 +62,26 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Extract required parameters
 		chain, err := req.RequireString("chain")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'chain' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("chain")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		from, err := req.RequireString("from")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'from' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("from")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		to, err := req.RequireString("to")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'to' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("to")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		amount, err := req.RequireString("amount")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'amount' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("amount")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Extract optional parameters
@@ -84,7 +91,8 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 
 		// Validate chain support
 		if chain != "ethereum" && chain != "bsc" && chain != "ETH" {
-			return mcp.NewToolResultError(fmt.Sprintf("unsupported chain: %s. Supported chains: ethereum, bsc", chain)), nil
+			toolErr := errors.TokenNotSupportedError(chain, "all")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Perform gas estimation if not provided
@@ -94,7 +102,8 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		if gasLimit == 0 || gasPrice == "" {
 			estimatedGasLimit, estimatedGasPrice, err := t.manager.EstimateGas(ctx, chain, from, to, amount, token)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to estimate gas: %v", err)), nil
+				toolErr := errors.InternalError("gas estimation", err)
+				return toolutils.FormatErrorResult(toolErr), nil
 			}
 
 			if gasLimit == 0 {
@@ -108,7 +117,8 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Send the transaction
 		txHash, err := t.manager.SendTransaction(ctx, chain, from, to, amount, token)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to send transaction: %v", err)), nil
+			toolErr := errors.InternalError("send transaction", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Format success response
@@ -136,3 +146,4 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
+

@@ -3,9 +3,12 @@ package tools
 
 import (
 	"context"
+	
 	"fmt"
 	"strings"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -52,13 +55,15 @@ func (t *RejectTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Extract and validate transaction_ids parameter
 		transactionIdsStr, err := req.RequireString("transaction_ids")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'transaction_ids' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("transaction_ids")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Extract and validate reason parameter
 		reason, err := req.RequireString("reason")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'reason' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("reason")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Parse transaction IDs from comma-separated string
@@ -72,12 +77,14 @@ func (t *RejectTransactionTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		if len(cleanedIds) == 0 {
-			return mcp.NewToolResultError("no valid transaction IDs provided"), nil
+			toolErr := errors.ValidationError("transaction_ids", "no valid transaction IDs provided")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Validate reason
 		if !t.isValidReason(reason) {
-			return mcp.NewToolResultError(fmt.Sprintf("invalid reason: %s. Valid reasons: suspicious_activity, high_gas_fee, user_request, security_concern, duplicate_transaction", reason)), nil
+			toolErr := errors.ValidationError("reason", fmt.Sprintf("invalid reason: %s. Valid reasons: suspicious_activity, high_gas_fee, user_request, security_concern, duplicate_transaction", reason))
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Extract optional parameters
@@ -88,7 +95,8 @@ func (t *RejectTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Reject transactions
 		rejectionResults, err := t.manager.RejectTransactions(ctx, cleanedIds, reason, details, notifyUser, auditLog)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to reject transactions: %v", err)), nil
+			toolErr := errors.InternalError("reject transactions", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Format response as markdown
@@ -97,6 +105,7 @@ func (t *RejectTransactionTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
+
 
 // isValidReason validates the rejection reason
 func (t *RejectTransactionTool) isValidReason(reason string) bool {
