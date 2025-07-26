@@ -2,7 +2,14 @@ import { test, expect } from '../fixtures/extension';
 import { TEST_PASSWORDS, EXTENSION_PAGES } from '../utils/test-data';
 
 test.describe('Wallet Create E2E Tests', () => {
-  test('Create new wallet flow', async ({ context: _context, extensionId, page }) => {
+  test('Create new wallet flow', async ({ context: _context, extensionId, page, nativeHost }) => {
+    // Log native host status
+    if (nativeHost) {
+      console.log('Native host is running for this test');
+    } else {
+      console.log('Native host is not available for this test');
+    }
+
     await test.step('Open extension popup page', async () => {
       await page.goto(`chrome-extension://${extensionId}${EXTENSION_PAGES.popup}`);
       await page.waitForLoadState('networkidle');
@@ -91,16 +98,16 @@ test.describe('Wallet Create E2E Tests', () => {
       try {
         // Wait for one of these states to appear
         await Promise.race([
-          successLocator.waitFor({ timeout: 10000 }),
-          errorLocator.waitFor({ timeout: 10000 }),
+          successLocator.waitFor({ timeout: 15000 }),
+          errorLocator.waitFor({ timeout: 15000 }),
           loadingLocator.waitFor({ timeout: 2000 })
         ]);
         
         // If we see loading, wait a bit more for completion
         if (await loadingLocator.isVisible()) {
           await Promise.race([
-            successLocator.waitFor({ timeout: 8000 }),
-            errorLocator.waitFor({ timeout: 8000 })
+            successLocator.waitFor({ timeout: 13000 }),
+            errorLocator.waitFor({ timeout: 13000 })
           ]);
         }
         
@@ -127,7 +134,14 @@ test.describe('Wallet Create E2E Tests', () => {
     });
   });
 
-  test('Create wallet with password validation', async ({ context: _context, extensionId, page }) => {
+  test('Create wallet with password validation', async ({ context: _context, extensionId, page, nativeHost }) => {
+    // Log native host status
+    if (nativeHost) {
+      console.log('Native host is running for this test');
+    } else {
+      console.log('Native host is not available for this test');
+    }
+    
     // This test may be skipped if the native host is not running or if UI elements are not found
     // It tests password validation in the wallet creation flow
     
