@@ -447,7 +447,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="w-80 max-w-xs mx-auto bg-white rounded shadow p-4 min-h-screen font-sans">
+    <div className="w-96 max-w-md mx-auto bg-white rounded shadow p-4 min-h-screen font-sans">
       <header className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Algonius Wallet</h1>
         <div className="flex items-center space-x-2">
