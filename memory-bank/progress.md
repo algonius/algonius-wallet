@@ -2,6 +2,31 @@
 
 ## Current Status
 
+### 2025-07-26 - Token Balance Query Standardization and Solana Chain Support
+
+- **🎯 MAJOR MILESTONE: Token Balance Query Standardization and Solana Chain Support COMPLETED**
+  - Successfully implemented GitHub issue #20 resolution
+  - Multi-chain token support with standardized identifiers
+  - Solana chain implementation with full wallet functionality
+  - Enhanced ETH and BSC chain implementations
+  - Comprehensive unit and integration tests
+
+- **📊 Technical Implementation Details**:
+  - Added Solana chain support with standardized token identifiers
+  - Extended ETH and BSC chain implementations to support standardized token identifiers
+  - Updated ChainFactory to register Solana chain
+  - Enhanced WalletManager to route balance queries to appropriate chains based on token identifiers
+  - Added github.com/mr-tron/base58 as an indirect dependency for Solana address handling
+  - Implemented proper validation for BEP-20, ERC-20, and Solana token addresses
+  - Expanded token support to include "BINANCE"/"BNB", "ETHER"/"ETH", and "SOL"/"SOLANA"
+
+### 2025-07-26 - Popup Width Fix
+
+- **🐛 MAJOR FIX: Popup Width Issue #28 RESOLVED**
+  - Increased popup width from 320px (w-80) to 384px (w-96) to meet industry standard dimensions
+  - Updated max-width from 20rem (max-w-xs) to 28rem (max-w-md)
+  - Improved layout and reduced content crowding
+
 ### 2025-07-15 - Unified MCP Transport Layer Achievement
 
 - **🎯 MAJOR MILESTONE: Unified MCP Server with Multi-Transport Support COMPLETED**
@@ -110,6 +135,16 @@
   - [x] Bulk transaction rejection with standardized reasons
   - [x] Optional user notifications and audit logging
   - [x] Comprehensive unit and integration tests
+- [x] **GitHub Issue #20: Fix Token Balance Query Standardization**
+  - [x] Implemented token balance query standardization
+  - [x] Added Solana chain support with standardized token identifiers
+  - [x] Extended ETH and BSC chain implementations
+  - [x] Enhanced WalletManager for multi-chain routing
+  - [x] Comprehensive unit and integration tests
+- [x] **GitHub Issue #28: Popup Width Fix**
+  - [x] Increased popup width to industry standard dimensions
+  - [x] Improved layout and reduced content crowding
+  - [x] Enhanced user experience
 
 ### Phase 3: Browser Extension 细节优化
 
@@ -146,3 +181,8 @@
 - Go/JS code is modular and interface-driven, supporting multi-chain extension and feature enhancement
 - Error handling and logging must cover all flows for debugging and traceability
 - UI/UX prioritizes security and clarity; all transactions require explicit user confirmation
+
+## Team Practices & Conventions
+
+- **MR Formatting**: Always ensure proper line breaks in MR descriptions. Use actual newlines (
+) rather than escaped newlines (\n) when creating or updating MRs.

@@ -2,6 +2,21 @@
 
 ## Current Focus
 
+### 2025-07-26 - Token Balance Query Standardization and Solana Chain Support
+
+**🎯 MAJOR ACHIEVEMENT: GitHub Issue #20 - Fix Token Balance Query Standardization**
+
+- **Implemented token balance query standardization** solving GitHub issue #20
+- **Added Solana chain support** with standardized token identifiers
+- **Extended ETH and BSC chain implementations** to support standardized token identifiers
+- **Updated ChainFactory** to register Solana chain
+- **Enhanced WalletManager** to route balance queries to appropriate chains based on token identifiers
+- **Added comprehensive tests** for multi-chain token balance queries
+- **Technical improvements**:
+  - Added github.com/mr-tron/base58 as an indirect dependency for Solana address handling
+  - Implemented proper validation for BEP-20, ERC-20, and Solana token addresses
+  - Expanded token support to include "BINANCE"/"BNB", "ETHER"/"ETH", and "SOL"/"SOLANA"
+
 ### 2025-07-26 - Reject Transaction Tool Implementation
 
 **🎯 MAJOR ACHIEVEMENT: GitHub Issue #13 - Reject Transaction MCP Tool**
@@ -65,6 +80,29 @@
 
 ## Recent Changes
 
+### 2025-07-26 - Token Balance Query Standardization Implementation
+
+- **🚀 Implemented Token Balance Query Standardization**:
+  - Created `solana_chain.go` with full Solana chain implementation
+  - Added Solana support in ChainFactory (`factory.go`)
+  - Enhanced WalletManager to support Solana token queries
+  - Extended ETH and BSC chain implementations for standardized token identifiers
+  - Added comprehensive unit tests for all chain implementations
+  - Updated dependencies to include github.com/mr-tron/base58 for Solana address handling
+
+- **🔄 Refactored Multi-Chain Support**:
+  - Improved token-to-chain mapping in WalletManager
+  - Enhanced chain determination logic to support Solana tokens ("SOL"/"SOLANA")
+  - Added validation for BEP-20, ERC-20, and Solana token addresses
+  - Updated comments to reflect planned implementation for actual balance retrieval
+
+### 2025-07-26 - Popup Width Fix
+
+- **🐛 Fixed Popup Width Issue #28**:
+  - Increased popup width from 320px (w-80) to 384px (w-96)
+  - Updated max-width from 20rem (max-w-xs) to 28rem (max-w-md)
+  - Improved layout and reduced content crowding
+
 ### 2025-07-15 - Unified MCP Server Implementation
 
 - **🚀 Implemented Unified MCP Server Architecture**:
@@ -119,11 +157,11 @@
 
 ## Next Steps
 
-### Immediate Priority (Post-Unified MCP Server)
+### Immediate Priority (Post-Token Balance Query Standardization)
 
-- **🎯 GitHub Issue Resolution**: Mark GitHub issue #4 as completed with unified MCP server solution
-- **📚 Documentation Updates**: Update API documentation to reflect dual transport endpoints
-- **🧪 Extended Testing**: Add performance and load testing for concurrent HTTP/SSE clients
+- **🎯 GitHub Issue Resolution**: Mark GitHub issue #20 as completed with token balance query standardization solution
+- **📚 Documentation Updates**: Update API documentation to reflect multi-chain token support
+- **🧪 Extended Testing**: Add performance and load testing for multi-chain token queries
 - **🔄 CI/CD Integration**: Ensure all new tests are included in continuous integration
 
 ### Advanced Features Development
@@ -139,3 +177,8 @@
 - Strict separation of authority: AI Agent can only access controlled MCP tools/resources, never sensitive wallet operations.
 - All sensitive operations are UI-gated and handled via Native Messaging.
 - Security, extensibility, and clarity remain top priorities for all new features and refactors.
+
+## Team Practices & Conventions
+
+- **MR Formatting**: Always ensure proper line breaks in MR descriptions. Use actual newlines (
+) rather than escaped newlines (\n) when creating or updating MRs.
