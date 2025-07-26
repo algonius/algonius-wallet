@@ -122,8 +122,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Register import_wallet RPC method (only available via Native Messaging)
+	// Register wallet RPC methods (only available via Native Messaging)
 	nm.RegisterRpcMethod("import_wallet", handlers.CreateImportWalletHandler(walletManager))
+	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager))
 
 	// Register init, status, shutdown RPC methods
 	nm.RegisterRpcMethod("init", func(req messaging.RpcRequest) (messaging.RpcResponse, error) {

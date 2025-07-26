@@ -46,6 +46,12 @@ install: build
 	cp ./bin/$(BINARY_NAME) $(HOME)/.algonius-wallet/bin/algonius-wallet-host
 	chmod 755 $(HOME)/.algonius-wallet/bin/algonius-wallet-host
 
+	# Install manifest file
+	@echo "Installing manifest file..."
+	mkdir -p $(HOME)/.algonius-wallet
+	# Create manifest with correct path
+	sed "s|/Users/\$(USER)|$(HOME)|g" ./$(MANIFEST_NAME) > $(HOME)/.algonius-wallet/$(MANIFEST_NAME)
+	
 	# Optionally create configuration directory
 	mkdir -p $(HOME)/.algonius-wallet
 	chmod 700 $(HOME)/.algonius-wallet

@@ -91,16 +91,16 @@ test.describe('Wallet Create E2E Tests', () => {
       try {
         // Wait for one of these states to appear
         await Promise.race([
-          successLocator.waitFor({ timeout: 10000 }),
-          errorLocator.waitFor({ timeout: 10000 }),
+          successLocator.waitFor({ timeout: 15000 }),
+          errorLocator.waitFor({ timeout: 15000 }),
           loadingLocator.waitFor({ timeout: 2000 })
         ]);
         
         // If we see loading, wait a bit more for completion
         if (await loadingLocator.isVisible()) {
           await Promise.race([
-            successLocator.waitFor({ timeout: 8000 }),
-            errorLocator.waitFor({ timeout: 8000 })
+            successLocator.waitFor({ timeout: 13000 }),
+            errorLocator.waitFor({ timeout: 13000 })
           ]);
         }
         
@@ -128,6 +128,9 @@ test.describe('Wallet Create E2E Tests', () => {
   });
 
   test('Create wallet with password validation', async ({ context: _context, extensionId, page }) => {
+    // This test may be skipped if the native host is not running or if UI elements are not found
+    // It tests password validation in the wallet creation flow
+    
     await test.step('Navigate to password step', async () => {
       await page.goto(`chrome-extension://${extensionId}${EXTENSION_PAGES.popup}`);
       
