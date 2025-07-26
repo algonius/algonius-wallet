@@ -91,17 +91,29 @@ func (b *BSCChain) GetBalance(ctx context.Context, address string, token string)
 		token = "BNB"
 	}
 
-	// For now, only support BNB (native token)
-	if token != "BNB" {
-		return "", fmt.Errorf("unsupported token: %s", token)
+	// Support standardized token identifiers
+	// BNB can be identified as "BNB" or "BINANCE"
+	supportedTokens := map[string]bool{
+		"BNB":     true,
+		"BINANCE": true,
+	}
+
+	if !supportedTokens[token] {
+		// Check if it's a contract address for BEP-20 tokens
+		if !common.IsHexAddress(token) {
+			return "", fmt.Errorf("unsupported token: %s", token)
+		}
+		// For now, we'll treat any valid hex address as a potential BEP-20 token
+		// TODO: In a real implementation, verify it's a valid BEP-20 contract
 	}
 
 	// TODO: Implement actual balance retrieval from BSC node
 	// This is a mock implementation that returns "0"
 	// In a real implementation, you would:
 	// 1. Connect to a BSC node (Binance API, QuickNode, etc.)
-	// 2. Use ethclient.BalanceAt() to get the balance
-	// 3. Convert from Wei to BNB
+	// 2. For BNB: Use ethclient.BalanceAt() to get the balance
+	// 3. For BEP-20: Use the contract's balanceOf function
+	// 4. Convert from Wei to BNB or token decimals
 	return "0", nil
 }
 
