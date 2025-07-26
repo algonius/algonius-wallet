@@ -22,6 +22,8 @@ func NewChainFactory() *ChainFactory {
 	factory.RegisterChain("ETHEREUM", NewETHChain())
 	factory.RegisterChain("BSC", NewBSCChain())
 	factory.RegisterChain("BINANCE", NewBSCChain())
+	factory.RegisterChain("SOL", NewSolanaChain())
+	factory.RegisterChain("SOLANA", NewSolanaChain())
 
 	return factory
 }

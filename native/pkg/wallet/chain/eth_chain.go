@@ -96,17 +96,29 @@ func (e *ETHChain) GetBalance(ctx context.Context, address string, token string)
 		token = "ETH"
 	}
 
-	// For now, only support ETH
-	if token != "ETH" {
-		return "", fmt.Errorf("unsupported token: %s", token)
+	// Support standardized token identifiers
+	// ETH can be identified as "ETH" or "ETHER"
+	supportedTokens := map[string]bool{
+		"ETH":   true,
+		"ETHER": true,
+	}
+
+	if !supportedTokens[token] {
+		// Check if it's a contract address for ERC-20 tokens
+		if !common.IsHexAddress(token) {
+			return "", fmt.Errorf("unsupported token: %s", token)
+		}
+		// For now, we'll treat any valid hex address as a potential ERC-20 token
+		// TODO: In a real implementation, verify it's a valid ERC-20 contract
 	}
 
 	// TODO: Implement actual balance retrieval from Ethereum node
 	// This is a mock implementation that returns "0"
 	// In a real implementation, you would:
 	// 1. Connect to an Ethereum node (Infura, Alchemy, etc.)
-	// 2. Use ethclient.BalanceAt() to get the balance
-	// 3. Convert from Wei to Ether
+	// 2. For ETH: Use ethclient.BalanceAt() to get the balance
+	// 3. For ERC-20: Use the contract's balanceOf function
+	// 4. Convert from Wei to Ether or token decimals
 	return "0", nil
 }
 

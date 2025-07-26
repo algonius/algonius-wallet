@@ -166,9 +166,28 @@ func (wm *WalletManager) GetBalance(ctx context.Context, address, token string) 
 		token = "ETH"
 	}
 
-	// For now, assume ETH chain for balance queries
-	// In the future, we could determine the chain from the address format
-	chainImpl, err := wm.chainFactory.GetChain("ETH")
+	// Determine chain based on token identifier
+	// This is a simple approach - in a production system, you might want a more sophisticated
+	// method that can determine the chain from the address format or other metadata
+	var chainName string
+	tokenUpper := strings.ToUpper(token)
+	
+	switch {
+	case tokenUpper == "ETH" || tokenUpper == "ETHER":
+		chainName = "ETH"
+	case tokenUpper == "BNB" || tokenUpper == "BINANCE":
+		chainName = "BSC"
+	case tokenUpper == "SOL" || tokenUpper == "SOLANA":
+		chainName = "SOL"
+	default:
+		// For contract addresses, we'll default to ETH for now
+		// A more sophisticated implementation might analyze the address format
+		// or require an explicit chain parameter
+		chainName = "ETH"
+	}
+
+	// Get the chain implementation
+	chainImpl, err := wm.chainFactory.GetChain(chainName)
 	if err != nil {
 		return "", err
 	}
