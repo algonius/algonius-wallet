@@ -2,6 +2,24 @@
 
 ## Current Focus
 
+### 2025-07-26 - Reject Transaction Tool Implementation
+
+**🎯 MAJOR ACHIEVEMENT: GitHub Issue #13 - Reject Transaction MCP Tool**
+
+- **Implemented reject_transaction MCP tool** solving GitHub issue #13
+- **Comprehensive transaction rejection capabilities**:
+  - Reject single or multiple pending transactions by ID
+  - Standardized rejection reasons (suspicious_activity, high_gas_fee, user_request, security_concern, duplicate_transaction)
+  - Optional user notifications and audit logging
+  - Detailed reporting of success/failure for each transaction
+- **Complete TransactionRejectionResult data structure** with all required fields:
+  - Transaction hash, success status, error message
+  - Rejection timestamp and audit log ID
+- **Wallet manager integration** with RejectTransactions method
+- **Audit logging** for all transaction rejections with traceable IDs
+- **Unit and integration tests** covering all scenarios and edge cases
+- **Registered in main.go** alongside other MCP tools
+
 ### 2025-07-17 - Get Pending Transactions Tool Implementation
 
 **🎯 MAJOR ACHIEVEMENT: GitHub Issue #8 - Get Pending Transactions MCP Tool**
