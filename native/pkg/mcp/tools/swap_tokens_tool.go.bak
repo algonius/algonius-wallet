@@ -13,7 +13,7 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/errors"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
-	"github.com/algonius/algonius-wallet/native/pkg/wallet/dex"
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -153,16 +153,25 @@ func (t *SwapTokensTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Create swap parameters
+		var amount string
+		if amountIn != nil {
+			amount = amountIn.String()
+		} else if amountOut != nil {
+			amount = amountOut.String()
+		} else {
+			toolErr := errors.ValidationError("amount", "either amount_in or amount_out must be specified")
+			return toolutils.FormatErrorResult(toolErr), nil
+		}
+
 		swapParams := &dex.SwapParams{
-			TokenIn:           tokenIn,
-			TokenOut:          tokenOut,
-			AmountIn:          amountIn,
-			AmountOut:         amountOut,
-			SlippageTolerance: slippageTolerance,
-			Deadline:          deadlineTimestamp,
-			Recipient:         from, // Use sender as recipient for simplicity
-			From:              from,
-			PrivateKey:        "0x0000000000000000000000000000000000000000000000000000000000000001", // Mock private key
+			FromToken:    tokenIn,
+			ToToken:      tokenOut,
+			Amount:       amount,
+			Slippage:     slippageTolerance,
+			FromAddress:  from,
+			ToAddress:    from, // Use sender as recipient for simplicity
+			ChainID:      "1",  // Default to Ethereum, should be configurable
+			PrivateKey:   "0x0000000000000000000000000000000000000000000000000000000000000001", // Mock private key
 		}
 
 		// Get quote first for validation

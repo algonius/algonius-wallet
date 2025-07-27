@@ -13,17 +13,33 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	bip39 "github.com/tyler-smith/go-bip39"
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
+	"go.uber.org/zap"
 )
 
 // ETHChain implements the IChain interface for Ethereum
 type ETHChain struct {
-	name string
+	name         string
+	dexAggregator dex.IDEXAggregator
+	logger       *zap.Logger
+	chainID      string
 }
 
 // NewETHChain creates a new ETH chain instance
-func NewETHChain() *ETHChain {
+func NewETHChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) *ETHChain {
 	return &ETHChain{
-		name: "ETH",
+		name:         "ETH",
+		dexAggregator: dexAggregator,
+		logger:       logger,
+		chainID:      "1", // Ethereum Mainnet
+	}
+}
+
+// NewETHChainLegacy creates a new ETH chain instance without DEX aggregator (for backward compatibility)
+func NewETHChainLegacy() *ETHChain {
+	return &ETHChain{
+		name:    "ETH",
+		chainID: "1",
 	}
 }
 
@@ -112,6 +128,27 @@ func (e *ETHChain) GetBalance(ctx context.Context, address string, token string)
 		// TODO: In a real implementation, verify it's a valid ERC-20 contract
 	}
 
+	// Try to get balance using DEX aggregator if available
+	if e.dexAggregator != nil {
+		providers := e.dexAggregator.GetSupportedProviders(e.chainID)
+		if len(providers) > 0 {
+			// Try first available provider
+			provider, err := e.dexAggregator.GetProviderByName(providers[0])
+			if err == nil {
+				balanceInfo, err := provider.GetBalance(ctx, address, token, e.chainID)
+				if err == nil {
+					e.logger.Debug("Balance retrieved via DEX provider",
+						zap.String("provider", providers[0]),
+						zap.String("balance", balanceInfo.Balance))
+					return balanceInfo.Balance, nil
+				}
+				e.logger.Warn("DEX provider balance failed, falling back to mock",
+					zap.String("provider", providers[0]),
+					zap.Error(err))
+			}
+		}
+	}
+
 	// TODO: Implement actual balance retrieval from Ethereum node
 	// This is a mock implementation that returns "0"
 	// In a real implementation, you would:
@@ -177,6 +214,39 @@ func (e *ETHChain) SendTransaction(ctx context.Context, from, to string, amount 
 		return "", errors.New("cannot send to the same address")
 	}
 
+	// Try to execute swap using DEX aggregator if it's a token swap
+	if e.dexAggregator != nil && isERC20 {
+		swapParams := dex.SwapParams{
+			FromToken:    "ETH",
+			ToToken:      token,
+			Amount:       amount,
+			Slippage:     0.005, // 0.5% default slippage
+			FromAddress:  from,
+			ToAddress:    to,
+			ChainID:      e.chainID,
+			PrivateKey:   privateKey,
+		}
+
+		// Try to get best quote and execute swap
+		quote, err := e.dexAggregator.GetBestQuote(ctx, swapParams)
+		if err == nil {
+			e.logger.Info("Executing token swap via DEX aggregator",
+				zap.String("provider", quote.Provider),
+				zap.String("fromAmount", quote.FromAmount),
+				zap.String("toAmount", quote.ToAmount))
+
+			result, err := e.dexAggregator.ExecuteSwapWithProvider(ctx, quote.Provider, swapParams)
+			if err == nil {
+				return result.TxHash, nil
+			}
+			e.logger.Warn("DEX swap failed, falling back to direct transfer",
+				zap.Error(err))
+		} else {
+			e.logger.Debug("No DEX quote available, proceeding with direct transfer",
+				zap.Error(err))
+		}
+	}
+
 	// TODO: Implement actual transaction creation and signing
 	// This is an enhanced mock implementation with proper validation
 	// In a real implementation, you would:
@@ -229,6 +299,33 @@ func (e *ETHChain) EstimateGas(ctx context.Context, from, to string, amount stri
 			return 0, "", fmt.Errorf("invalid token contract address: %s", token)
 		}
 		baseGasLimit = 65000 // Typical gas for ERC-20 transfer
+	}
+
+	// Try to get gas estimate from DEX aggregator if available
+	if e.dexAggregator != nil {
+		swapParams := dex.SwapParams{
+			FromToken:   "ETH",
+			ToToken:     token,
+			Amount:      amount,
+			FromAddress: from,
+			ToAddress:   to,
+			ChainID:     e.chainID,
+		}
+
+		providers := e.dexAggregator.GetSupportedProviders(e.chainID)
+		if len(providers) > 0 {
+			provider, err := e.dexAggregator.GetProviderByName(providers[0])
+			if err == nil {
+				gasLimit, gasPrice, err := provider.EstimateGas(ctx, swapParams)
+				if err == nil {
+					e.logger.Debug("Gas estimate from DEX provider",
+						zap.String("provider", providers[0]),
+						zap.Uint64("gasLimit", gasLimit),
+						zap.String("gasPrice", gasPrice))
+					return gasLimit, gasPrice, nil
+				}
+			}
+		}
 	}
 
 	// TODO: In a real implementation, you would:

@@ -6,7 +6,7 @@ import (
 )
 
 func TestSolanaChain_CreateWallet(t *testing.T) {
-	chain := NewSolanaChain()
+	chain := NewSolanaChainLegacy()
 	ctx := context.Background()
 
 	walletInfo, err := chain.CreateWallet(ctx)
@@ -36,7 +36,7 @@ func TestSolanaChain_CreateWallet(t *testing.T) {
 }
 
 func TestSolanaChain_GetBalance(t *testing.T) {
-	chain := NewSolanaChain()
+	chain := NewSolanaChainLegacy()
 	ctx := context.Background()
 
 	// Test valid address and SOL token
@@ -66,7 +66,7 @@ func TestSolanaChain_GetBalance(t *testing.T) {
 }
 
 func TestSolanaChain_GetChainName(t *testing.T) {
-	chain := NewSolanaChain()
+	chain := NewSolanaChainLegacy()
 	if chain.GetChainName() != "SOLANA" {
 		t.Errorf("Expected chain name 'SOLANA', got: %s", chain.GetChainName())
 	}

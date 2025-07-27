@@ -12,6 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
+	"github.com/algonius/algonius-wallet/native/pkg/dex/providers"
 	"github.com/algonius/algonius-wallet/native/pkg/logger"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/resources"
@@ -220,8 +222,51 @@ func main() {
 	confirmTransactionTool := tools.NewConfirmTransactionTool(walletManager)
 	mcp.RegisterTool(s, confirmTransactionTool)
 
-	swapTokensTool := tools.NewSwapTokensTool(walletManager)
-	mcp.RegisterTool(s, swapTokensTool)
+	// Extract zap logger from the wrapper
+	zapLogger := logr.(*logger.ZapLogger).Logger
+	
+	// Create DEX aggregator with OKX and Direct providers
+	dexAggregator := dex.NewDEXAggregator(zapLogger)
+	
+	// Register Direct provider for backward compatibility
+	directProvider := providers.NewDirectProvider(zapLogger)
+	if err := dexAggregator.RegisterProvider(directProvider); err != nil {
+		logr.Error("Failed to register direct provider", zap.Error(err))
+	}
+	
+	// Check if we're in mock mode (for testing)
+	if os.Getenv("DEX_MOCK_MODE") == "true" {
+		// Register mock providers for testing
+		mockProvider := providers.NewMockProvider(providers.MockConfig{
+			Name: "MockOKX",
+			SupportedChains: []string{"1", "56", "501"},
+		}, zapLogger)
+		if err := dexAggregator.RegisterProvider(mockProvider); err != nil {
+			logr.Error("Failed to register mock provider", zap.Error(err))
+		} else {
+			logr.Info("Mock DEX provider registered for testing")
+		}
+	} else {
+		// Register OKX provider if configured
+		okxConfig := providers.OKXConfig{
+			APIKey:     os.Getenv("OKX_API_KEY"),
+			SecretKey:  os.Getenv("OKX_SECRET_KEY"),
+			Passphrase: os.Getenv("OKX_PASSPHRASE"),
+		}
+		if okxConfig.APIKey != "" && okxConfig.SecretKey != "" && okxConfig.Passphrase != "" {
+			okxProvider := providers.NewOKXProvider(okxConfig, zapLogger)
+			if err := dexAggregator.RegisterProvider(okxProvider); err != nil {
+				logr.Error("Failed to register OKX provider", zap.Error(err))
+			} else {
+				logr.Info("OKX DEX provider registered successfully")
+			}
+		} else {
+			logr.Info("OKX credentials not provided, skipping OKX provider registration")
+		}
+	}
+	
+	swapTokensToolNew := tools.NewSwapTokensToolWithAggregator(dexAggregator, zapLogger)
+	swapTokensToolNew.Register(s)
 
 	getPendingTransactionsTool := tools.NewGetPendingTransactionsTool(walletManager)
 	mcp.RegisterTool(s, getPendingTransactionsTool)

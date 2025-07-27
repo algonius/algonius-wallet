@@ -10,7 +10,9 @@ import (
 
 func TestSwapTokensTool(t *testing.T) {
 	ctx := context.Background()
-	testEnv, err := env.NewMcpHostTestEnvironment(nil)
+	testEnv, err := env.NewMcpHostTestEnvironment(&env.TestConfig{
+		MockMode: true,
+	})
 	require.NoError(t, err, "failed to create test environment")
 	defer testEnv.Cleanup()
 
@@ -53,7 +55,9 @@ func TestSwapTokensTool(t *testing.T) {
 
 func TestSwapTokensToolValidation(t *testing.T) {
 	ctx := context.Background()
-	testEnv, err := env.NewMcpHostTestEnvironment(nil)
+	testEnv, err := env.NewMcpHostTestEnvironment(&env.TestConfig{
+		MockMode: true,
+	})
 	require.NoError(t, err, "failed to create test environment")
 	defer testEnv.Cleanup()
 
@@ -150,7 +154,9 @@ func TestSwapTokensToolValidation(t *testing.T) {
 
 func TestSwapTokensToolDEXSelection(t *testing.T) {
 	ctx := context.Background()
-	testEnv, err := env.NewMcpHostTestEnvironment(nil)
+	testEnv, err := env.NewMcpHostTestEnvironment(&env.TestConfig{
+		MockMode: true,
+	})
 	require.NoError(t, err, "failed to create test environment")
 	defer testEnv.Cleanup()
 
