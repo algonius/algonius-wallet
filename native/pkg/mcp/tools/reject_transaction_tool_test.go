@@ -49,6 +49,10 @@ func (m *MockRejectWalletManager) RejectTransactions(ctx context.Context, transa
 	return []wallet.TransactionRejectionResult{}, nil
 }
 
+func (m *MockRejectWalletManager) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
+	return []*wallet.HistoricalTransaction{}, nil
+}
+
 func TestRejectTransactionTool_GetMeta(t *testing.T) {
 	mockManager := &MockRejectWalletManager{}
 	tool := NewRejectTransactionTool(mockManager)

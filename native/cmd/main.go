@@ -271,6 +271,9 @@ func main() {
 	getPendingTransactionsTool := tools.NewGetPendingTransactionsTool(walletManager)
 	mcp.RegisterTool(s, getPendingTransactionsTool)
 
+	getTransactionHistoryTool := tools.NewGetTransactionHistoryTool(walletManager)
+	mcp.RegisterTool(s, getTransactionHistoryTool)
+
 	rejectTransactionTool := tools.NewRejectTransactionTool(walletManager)
 	mcp.RegisterTool(s, rejectTransactionTool)
 
