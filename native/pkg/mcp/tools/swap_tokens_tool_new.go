@@ -25,7 +25,9 @@ func NewSwapTokensToolNew(logger *zap.Logger) *SwapTokensToolNew {
 	// Initialize DEX aggregator with direct provider for now
 	aggregator := dex.NewDEXAggregator(logger)
 	directProvider := providers.NewDirectProvider(logger)
-	aggregator.RegisterProvider(directProvider)
+	if err := aggregator.RegisterProvider(directProvider); err != nil {
+		logger.Error("Failed to register direct provider", zap.Error(err))
+	}
 
 	return &SwapTokensToolNew{
 		dexAggregator: aggregator,
