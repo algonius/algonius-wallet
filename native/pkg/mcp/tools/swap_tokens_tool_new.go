@@ -38,8 +38,8 @@ func NewSwapTokensToolNew(logger *zap.Logger) *SwapTokensToolNew {
 // Definition returns the tool definition for MCP
 func (t *SwapTokensToolNew) Definition() mcp.Tool {
 	return mcp.Tool{
-		Name:        "swap_tokens_new",
-		Description: "Execute token swaps using the new DEX aggregator system. Supports multiple DEX providers and chains.",
+		Name:        "swap_tokens",
+		Description: "Execute token swaps using the DEX aggregator system. Supports multiple DEX providers and chains.",
 		InputSchema: mcp.ToolInputSchema{
 			Type: "object",
 			Properties: map[string]interface{}{
