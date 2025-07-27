@@ -48,13 +48,7 @@ jobs:
         run: make unit-test
 
       - name: Integration test native host
-        run: |
-          if [[ "${{ github.head_ref }}" == "feature/multi-chain-dex-integration" ]]; then
-            echo "Skipping integration tests for multi-chain-dex-integration branch due to timeout issues"
-            echo "All integration tests pass individually but collectively exceed CI timeout limits"
-          else
-            make integration-test
-          fi
+        run: make integration-test
 
       - name: Upload native host binary
         uses: actions/upload-artifact@v4
