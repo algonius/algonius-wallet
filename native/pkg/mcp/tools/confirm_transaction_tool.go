@@ -3,8 +3,11 @@ package tools
 
 import (
 	"context"
+	
 	"fmt"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -50,19 +53,22 @@ func (t *ConfirmTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Extract and validate chain parameter
 		chain, err := req.RequireString("chain")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'chain' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("chain")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Normalize chain name
 		normalizedChain, err := t.normalizeChainName(chain)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("unsupported chain: %s", chain)), nil
+			toolErr := errors.TokenNotSupportedError(chain, "all")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Extract and validate tx_hash parameter
 		txHash, err := req.RequireString("tx_hash")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'tx_hash' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("tx_hash")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Extract optional required_confirmations parameter
@@ -72,7 +78,8 @@ func (t *ConfirmTransactionTool) GetHandler() server.ToolHandlerFunc {
 		// Check transaction confirmation status
 		confirmation, err := wallet.ConfirmTransaction(ctx, normalizedChain, txHash, requiredConfirmations, t.factory)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Failed to check transaction confirmation: %s", err.Error())), nil
+			toolErr := errors.InternalError("confirm transaction", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Prepare response as markdown text
@@ -100,6 +107,7 @@ func (t *ConfirmTransactionTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
+
 
 // normalizeChainName converts various chain name formats to standard form
 func (t *ConfirmTransactionTool) normalizeChainName(chain string) (string, error) {

@@ -3,8 +3,9 @@ package tools
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -41,17 +42,20 @@ func (t *GetBalanceTool) GetHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		address, err := req.RequireString("address")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'address' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("address")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		token, err := req.RequireString("token")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'token' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("token")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		balance, err := t.manager.GetBalance(ctx, address, token)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get balance: %v", err)), nil
+			toolErr := errors.InternalError("get balance", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		markdown := "### Wallet Balance\n\n" +
@@ -61,3 +65,4 @@ func (t *GetBalanceTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
+

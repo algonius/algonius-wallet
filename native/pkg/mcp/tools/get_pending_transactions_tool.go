@@ -3,8 +3,11 @@ package tools
 
 import (
 	"context"
+	
 	"fmt"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -68,7 +71,8 @@ func (t *GetPendingTransactionsTool) GetHandler() server.ToolHandlerFunc {
 		// Get pending transactions from wallet manager
 		pendingTxs, err := t.manager.GetPendingTransactions(ctx, chain, address, transactionType, limit, offset)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get pending transactions: %v", err)), nil
+			toolErr := errors.InternalError("get pending transactions", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Format response as markdown
@@ -120,3 +124,4 @@ func (t *GetPendingTransactionsTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
+

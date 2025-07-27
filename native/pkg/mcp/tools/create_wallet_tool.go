@@ -4,6 +4,8 @@ package tools
 import (
 	"context"
 
+	"github.com/algonius/algonius-wallet/native/pkg/errors"
+	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -37,11 +39,13 @@ func (t *CreateWalletTool) GetHandler() server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		chain, err := req.RequireString("chain")
 		if err != nil {
-			return mcp.NewToolResultError("missing or invalid 'chain' parameter"), nil
+			toolErr := errors.MissingRequiredFieldError("chain")
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 		address, publicKey, err := t.manager.CreateWallet(ctx, chain)
 		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+			toolErr := errors.InternalError("create wallet", err)
+			return toolutils.FormatErrorResult(toolErr), nil
 		}
 		markdown := "### Wallet Created\n\n" +
 			"- **Address**: `" + address + "`\n" +

@@ -229,7 +229,7 @@ func TestConfirmTransactionToolValidation(t *testing.T) {
 				"tx_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 			},
 			expectError: true,
-			errorText:   "missing or invalid 'chain' parameter",
+			errorText:   "missing required field 'chain'",
 		},
 		{
 			name: "missing_tx_hash",
@@ -237,7 +237,7 @@ func TestConfirmTransactionToolValidation(t *testing.T) {
 				"chain": "ethereum",
 			},
 			expectError: true,
-			errorText:   "missing or invalid 'tx_hash' parameter",
+			errorText:   "missing required field 'tx_hash'",
 		},
 		{
 			name: "unsupported_chain",
@@ -246,7 +246,7 @@ func TestConfirmTransactionToolValidation(t *testing.T) {
 				"tx_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 			},
 			expectError: true,
-			errorText:   "unsupported chain",
+			errorText:   "token 'bitcoin' is not supported on chain 'all'",
 		},
 		{
 			name: "invalid_hash_length",
@@ -255,7 +255,7 @@ func TestConfirmTransactionToolValidation(t *testing.T) {
 				"tx_hash": "0x123", // Too short
 			},
 			expectError: true,
-			errorText:   "Failed to check transaction confirmation",
+			errorText:   "internal error during confirm transaction",
 		},
 		{
 			name: "invalid_hash_format",
@@ -264,7 +264,7 @@ func TestConfirmTransactionToolValidation(t *testing.T) {
 				"tx_hash": "0xGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG", // Invalid hex
 			},
 			expectError: true,
-			errorText:   "Failed to check transaction confirmation",
+			errorText:   "internal error during confirm transaction",
 		},
 	}
 
