@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
-	"github.com/algonius/algonius-wallet/native/pkg/wallet/dex"
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
 )
 
 // SwapSimulationResult represents the result of a swap simulation
@@ -27,15 +27,15 @@ type SwapSimulationResult struct {
 
 // SwapSimulator handles swap simulations
 type SwapSimulator struct {
-	chainFactory *chain.ChainFactory
-	dexFactory   dex.IDEXFactory
+	chainFactory  *chain.ChainFactory
+	dexAggregator dex.IDEXAggregator
 }
 
 // NewSwapSimulator creates a new SwapSimulator
-func NewSwapSimulator(chainFactory *chain.ChainFactory, dexFactory dex.IDEXFactory) *SwapSimulator {
+func NewSwapSimulator(chainFactory *chain.ChainFactory, dexAggregator dex.IDEXAggregator) *SwapSimulator {
 	return &SwapSimulator{
-		chainFactory: chainFactory,
-		dexFactory:   dexFactory,
+		chainFactory:  chainFactory,
+		dexAggregator: dexAggregator,
 	}
 }
 
@@ -50,11 +50,8 @@ func (s *SwapSimulator) SimulateSwap(ctx context.Context, chainName, tokenIn, to
 	// Note: Skipping address validation for now as it's not implemented in IChain interface
 	// In a real implementation, you would validate addresses using chain-specific methods
 
-	// Create DEX instance
-	dexInstance, err := s.dexFactory.CreateDEX(dexProtocol, chainName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create DEX instance: %w", err)
-	}
+	// For simulation, we'll use the DEX aggregator's best quote
+	// In a real implementation, you could specify a particular DEX protocol
 
 	// Parse amounts
 	var amountInValue, amountOutValue *big.Int
@@ -94,29 +91,36 @@ func (s *SwapSimulator) SimulateSwap(ctx context.Context, chainName, tokenIn, to
 	}
 
 	// Create swap parameters
+	var amount string
+	if amountInValue != nil {
+		amount = amountInValue.String()
+	} else if amountOutValue != nil {
+		amount = amountOutValue.String()
+	} else {
+		return nil, fmt.Errorf("either amountIn or amountOut must be specified")
+	}
+
 	swapParams := &dex.SwapParams{
-		TokenIn:           tokenIn,
-		TokenOut:          tokenOut,
-		AmountIn:          amountInValue,
-		AmountOut:         amountOutValue,
-		SlippageTolerance: slippageTolerance,
-		Recipient:         from,
-		From:              from,
+		FromToken:    tokenIn,
+		ToToken:      tokenOut,
+		Amount:       amount,
+		Slippage:     slippageTolerance,
+		FromAddress:  from,
+		ToAddress:    from,
+		ChainID:      "1", // Default to Ethereum for simulation
 		// Note: We don't need a real private key for simulation
 		PrivateKey: "0x0000000000000000000000000000000000000000000000000000000000000001",
 	}
 
 	// Get quote for the swap
-	quote, err := dexInstance.GetQuote(ctx, swapParams)
+	quote, err := s.dexAggregator.GetBestQuote(ctx, *swapParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get swap quote: %w", err)
 	}
 
-	// Use the gas estimate from the quote instead of calling EstimateGas on dexInstance
-	// as EstimateGas is not part of the IDEX interface
-	gasLimit := quote.GasEstimate
-	// For gas price, we need to get it from somewhere else, using a default for now
-	gasPrice := "20000000000" // 20 Gwei default, would need to be fetched from chain in real implementation
+	// Use the gas estimate from the quote
+	gasLimit := quote.EstimatedGas
+	gasPrice := quote.GasPrice
 
 	// Calculate total cost
 	gasPriceValue, ok := new(big.Int).SetString(gasPrice, 10)
@@ -162,8 +166,8 @@ func (s *SwapSimulator) SimulateSwap(ctx context.Context, chainName, tokenIn, to
 
 	return &SwapSimulationResult{
 		Success:       true,
-		AmountIn:      quote.AmountIn.String(),
-		AmountOut:     quote.AmountOut.String(),
+		AmountIn:      quote.FromAmount,
+		AmountOut:     quote.ToAmount,
 		PriceImpact:   quote.PriceImpact,
 		GasUsed:       gasLimit,
 		GasPrice:      gasPrice,

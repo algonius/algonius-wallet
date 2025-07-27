@@ -6,7 +6,7 @@ import (
 )
 
 func TestETHChain_ConfirmTransaction(t *testing.T) {
-	chain := NewETHChain()
+	chain := NewETHChainLegacy()
 	ctx := context.Background()
 
 	// Test valid transaction hash (64 chars + 0x = 66 total)
@@ -44,7 +44,7 @@ func TestETHChain_ConfirmTransaction(t *testing.T) {
 }
 
 func TestETHChain_ConfirmTransaction_DefaultConfirmations(t *testing.T) {
-	chain := NewETHChain()
+	chain := NewETHChainLegacy()
 	ctx := context.Background()
 
 	txHash := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
@@ -62,7 +62,7 @@ func TestETHChain_ConfirmTransaction_DefaultConfirmations(t *testing.T) {
 }
 
 func TestETHChain_ConfirmTransaction_InvalidHash(t *testing.T) {
-	chain := NewETHChain()
+	chain := NewETHChainLegacy()
 	ctx := context.Background()
 
 	// Test empty hash
@@ -85,7 +85,7 @@ func TestETHChain_ConfirmTransaction_InvalidHash(t *testing.T) {
 }
 
 func TestETHChain_ConfirmTransaction_HashNormalization(t *testing.T) {
-	chain := NewETHChain()
+	chain := NewETHChainLegacy()
 	ctx := context.Background()
 
 	// Test hash without 0x prefix
@@ -103,7 +103,7 @@ func TestETHChain_ConfirmTransaction_HashNormalization(t *testing.T) {
 }
 
 func TestBSCChain_ConfirmTransaction(t *testing.T) {
-	chain := NewBSCChain()
+	chain := NewBSCChainLegacy()
 	ctx := context.Background()
 
 	// Test valid transaction hash
@@ -129,7 +129,7 @@ func TestBSCChain_ConfirmTransaction(t *testing.T) {
 }
 
 func TestBSCChain_ConfirmTransaction_DefaultConfirmations(t *testing.T) {
-	chain := NewBSCChain()
+	chain := NewBSCChainLegacy()
 	ctx := context.Background()
 
 	txHash := "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"

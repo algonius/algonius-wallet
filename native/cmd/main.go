@@ -220,8 +220,10 @@ func main() {
 	confirmTransactionTool := tools.NewConfirmTransactionTool(walletManager)
 	mcp.RegisterTool(s, confirmTransactionTool)
 
-	swapTokensTool := tools.NewSwapTokensTool(walletManager)
-	mcp.RegisterTool(s, swapTokensTool)
+	// Extract zap logger from the wrapper
+	zapLogger := logr.(*logger.ZapLogger).Logger
+	swapTokensToolNew := tools.NewSwapTokensToolNew(zapLogger)
+	swapTokensToolNew.Register(s)
 
 	getPendingTransactionsTool := tools.NewGetPendingTransactionsTool(walletManager)
 	mcp.RegisterTool(s, getPendingTransactionsTool)

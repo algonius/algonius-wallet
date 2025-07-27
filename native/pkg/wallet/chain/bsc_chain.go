@@ -13,17 +13,33 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	bip39 "github.com/tyler-smith/go-bip39"
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
+	"go.uber.org/zap"
 )
 
 // BSCChain implements the IChain interface for Binance Smart Chain
 type BSCChain struct {
-	name string
+	name         string
+	dexAggregator dex.IDEXAggregator
+	logger       *zap.Logger
+	chainID      string
 }
 
 // NewBSCChain creates a new BSC chain instance
-func NewBSCChain() *BSCChain {
+func NewBSCChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) *BSCChain {
 	return &BSCChain{
-		name: "BSC",
+		name:         "BSC",
+		dexAggregator: dexAggregator,
+		logger:       logger,
+		chainID:      "56", // BSC Mainnet
+	}
+}
+
+// NewBSCChainLegacy creates a new BSC chain instance without DEX aggregator (for backward compatibility)
+func NewBSCChainLegacy() *BSCChain {
+	return &BSCChain{
+		name:    "BSC",
+		chainID: "56",
 	}
 }
 
@@ -107,6 +123,27 @@ func (b *BSCChain) GetBalance(ctx context.Context, address string, token string)
 		// TODO: In a real implementation, verify it's a valid BEP-20 contract
 	}
 
+	// Try to get balance using DEX aggregator if available
+	if b.dexAggregator != nil {
+		providers := b.dexAggregator.GetSupportedProviders(b.chainID)
+		if len(providers) > 0 {
+			// Try first available provider
+			provider, err := b.dexAggregator.GetProviderByName(providers[0])
+			if err == nil {
+				balanceInfo, err := provider.GetBalance(ctx, address, token, b.chainID)
+				if err == nil {
+					b.logger.Debug("BSC balance retrieved via DEX provider",
+						zap.String("provider", providers[0]),
+						zap.String("balance", balanceInfo.Balance))
+					return balanceInfo.Balance, nil
+				}
+				b.logger.Warn("BSC DEX provider balance failed, falling back to mock",
+					zap.String("provider", providers[0]),
+					zap.Error(err))
+			}
+		}
+	}
+
 	// TODO: Implement actual balance retrieval from BSC node
 	// This is a mock implementation that returns "0"
 	// In a real implementation, you would:
@@ -172,6 +209,39 @@ func (b *BSCChain) SendTransaction(ctx context.Context, from, to string, amount 
 		return "", errors.New("cannot send to the same address")
 	}
 
+	// Try to execute swap using DEX aggregator if it's a token swap
+	if b.dexAggregator != nil && isERC20 {
+		swapParams := dex.SwapParams{
+			FromToken:    "BNB",
+			ToToken:      token,
+			Amount:       amount,
+			Slippage:     0.005, // 0.5% default slippage
+			FromAddress:  from,
+			ToAddress:    to,
+			ChainID:      b.chainID,
+			PrivateKey:   privateKey,
+		}
+
+		// Try to get best quote and execute swap
+		quote, err := b.dexAggregator.GetBestQuote(ctx, swapParams)
+		if err == nil {
+			b.logger.Info("Executing BSC token swap via DEX aggregator",
+				zap.String("provider", quote.Provider),
+				zap.String("fromAmount", quote.FromAmount),
+				zap.String("toAmount", quote.ToAmount))
+
+			result, err := b.dexAggregator.ExecuteSwapWithProvider(ctx, quote.Provider, swapParams)
+			if err == nil {
+				return result.TxHash, nil
+			}
+			b.logger.Warn("BSC DEX swap failed, falling back to direct transfer",
+				zap.Error(err))
+		} else {
+			b.logger.Debug("No BSC DEX quote available, proceeding with direct transfer",
+				zap.Error(err))
+		}
+	}
+
 	// TODO: Implement actual BSC transaction creation and signing
 	// This is an enhanced mock implementation with proper validation
 	// In a real implementation, you would:
@@ -224,6 +294,33 @@ func (b *BSCChain) EstimateGas(ctx context.Context, from, to string, amount stri
 			return 0, "", fmt.Errorf("invalid token contract address: %s", token)
 		}
 		baseGasLimit = 65000 // Typical gas for BEP-20 transfer
+	}
+
+	// Try to get gas estimate from DEX aggregator if available
+	if b.dexAggregator != nil {
+		swapParams := dex.SwapParams{
+			FromToken:   "BNB",
+			ToToken:     token,
+			Amount:      amount,
+			FromAddress: from,
+			ToAddress:   to,
+			ChainID:     b.chainID,
+		}
+
+		providers := b.dexAggregator.GetSupportedProviders(b.chainID)
+		if len(providers) > 0 {
+			provider, err := b.dexAggregator.GetProviderByName(providers[0])
+			if err == nil {
+				gasLimit, gasPrice, err := provider.EstimateGas(ctx, swapParams)
+				if err == nil {
+					b.logger.Debug("BSC gas estimate from DEX provider",
+						zap.String("provider", providers[0]),
+						zap.Uint64("gasLimit", gasLimit),
+						zap.String("gasPrice", gasPrice))
+					return gasLimit, gasPrice, nil
+				}
+			}
+		}
 	}
 
 	// TODO: In a real implementation, you would:
