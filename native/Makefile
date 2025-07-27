@@ -24,7 +24,7 @@ unit-test:
 
 integration-test:
 	@echo "Running tests..."
-	go test -v ./tests/...
+	go test -v -timeout=3m -parallel=4 ./tests/...
 
 test: unit-test integration-test
 
