@@ -3,6 +3,7 @@ package dex
 
 import (
 	"context"
+	"fmt"
 )
 
 // SwapParams contains parameters for token swap operations
@@ -15,6 +16,29 @@ type SwapParams struct {
 	ToAddress    string  `json:"to_address"`    // Recipient address (can be same as from)
 	ChainID      string  `json:"chain_id"`      // Blockchain chain ID
 	PrivateKey   string  `json:"private_key"`   // Private key for signing (handled securely)
+}
+
+// Validate validates the swap parameters
+func (sp *SwapParams) Validate() error {
+	if sp.FromToken == "" {
+		return fmt.Errorf("from_token is required")
+	}
+	if sp.ToToken == "" {
+		return fmt.Errorf("to_token is required")
+	}
+	if sp.Amount == "" {
+		return fmt.Errorf("amount is required")
+	}
+	if sp.FromAddress == "" {
+		return fmt.Errorf("from_address is required")
+	}
+	if sp.ChainID == "" {
+		return fmt.Errorf("chain_id is required")
+	}
+	if sp.Slippage < 0 || sp.Slippage > 1 {
+		return fmt.Errorf("slippage must be between 0 and 1")
+	}
+	return nil
 }
 
 // SwapQuote contains quote information for a token swap

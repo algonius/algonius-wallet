@@ -20,7 +20,7 @@ type SwapTokensToolNew struct {
 	logger        *zap.Logger
 }
 
-// NewSwapTokensToolNew creates a new SwapTokensToolNew instance
+// NewSwapTokensToolNew creates a new SwapTokensToolNew instance with default configuration
 func NewSwapTokensToolNew(logger *zap.Logger) *SwapTokensToolNew {
 	// Initialize DEX aggregator with direct provider for now
 	aggregator := dex.NewDEXAggregator(logger)
@@ -29,6 +29,14 @@ func NewSwapTokensToolNew(logger *zap.Logger) *SwapTokensToolNew {
 		logger.Error("Failed to register direct provider", zap.Error(err))
 	}
 
+	return &SwapTokensToolNew{
+		dexAggregator: aggregator,
+		logger:        logger,
+	}
+}
+
+// NewSwapTokensToolWithAggregator creates a new SwapTokensToolNew instance with custom DEX aggregator
+func NewSwapTokensToolWithAggregator(aggregator dex.IDEXAggregator, logger *zap.Logger) *SwapTokensToolNew {
 	return &SwapTokensToolNew{
 		dexAggregator: aggregator,
 		logger:        logger,

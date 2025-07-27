@@ -23,12 +23,14 @@ type McpHostTestEnvironment struct {
 	logFilePath    string
 	testDataDir    string
 	logMonitorStop chan struct{}
+	config         *TestConfig
 }
 
 type TestConfig struct {
 	Port        int
 	LogLevel    string
 	TestDataDir string
+	MockMode    bool // Enable mock mode for external dependencies
 }
 
 func NewMcpHostTestEnvironment(config *TestConfig) (*McpHostTestEnvironment, error) {
@@ -64,6 +66,7 @@ func NewMcpHostTestEnvironment(config *TestConfig) (*McpHostTestEnvironment, err
 		testDataDir:    testDataDir,
 		logFilePath:    filepath.Join(testDataDir, "mcp-host.log"),
 		logMonitorStop: make(chan struct{}),
+		config:         config,
 	}, nil
 }
 
@@ -116,6 +119,11 @@ func (env *McpHostTestEnvironment) startMcpHost(ctx context.Context) error {
 		"LOG_LEVEL=debug",
 		"RUN_MODE=test",
 	)
+	
+	// Add mock mode configuration if enabled
+	if env.config != nil && env.config.MockMode {
+		environ = append(environ, "DEX_MOCK_MODE=true")
+	}
 
 	// Start the MCP host process (algonius-wallet-host)
 	env.hostProcess = exec.CommandContext(ctx, "../../bin/algonius-wallet-host")
