@@ -549,3 +549,197 @@ func (wm *WalletManager) sendRejectionNotification(tx *PendingTransaction, reaso
 	// For now, we just simulate success
 	return nil
 }
+
+// GetTransactionHistory retrieves historical transactions for the specified address with optional filtering
+func (wm *WalletManager) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*HistoricalTransaction, error) {
+	// Validate required parameters
+	if address == "" {
+		return nil, errors.New("address is required")
+	}
+	
+	// Validate pagination parameters
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	
+	// For now, we'll return mock historical transactions for development purposes
+	// In a real implementation, this would:
+	// 1. Query blockchain RPC endpoints for transaction history
+	// 2. Parse transaction logs for ERC-20/SPL token transfers
+	// 3. Decode contract interactions
+	// 4. Apply block range filters
+	// 5. Return paginated results
+	
+	// Generate mock historical transactions
+	mockTxs := wm.generateMockHistoricalTransactions(address, fromBlock, toBlock)
+	
+	// Apply pagination
+	start := offset
+	if start >= len(mockTxs) {
+		return []*HistoricalTransaction{}, nil
+	}
+	
+	end := start + limit
+	if end > len(mockTxs) {
+		end = len(mockTxs)
+	}
+	
+	return mockTxs[start:end], nil
+}
+
+// generateMockHistoricalTransactions creates mock historical transactions for development
+func (wm *WalletManager) generateMockHistoricalTransactions(address string, fromBlock, toBlock *uint64) []*HistoricalTransaction {
+	baseTime := time.Now()
+	
+	// Create a variety of mock historical transactions
+	mockTxs := []*HistoricalTransaction{
+		{
+			Hash:              "0x123abc456def789ghi012jkl345mno678pqr901stu234vwx567yza890bcd123efg",
+			Chain:             "ethereum",
+			BlockNumber:       18500100,
+			BlockHash:         "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			TransactionIndex:  42,
+			From:              "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                "0x8ba1f109551bD432803012645Hac136c22C4F9B",
+			Value:             "1.5",
+			Token:             "ETH",
+			TokenSymbol:       "ETH",
+			Type:              "transfer",
+			Status:            "confirmed",
+			GasUsed:           "21000",
+			GasPrice:          "20000000000",
+			TransactionFee:    "0.00042",
+			Timestamp:         baseTime.Add(-2 * time.Hour),
+			Confirmations:     50,
+		},
+		{
+			Hash:              "0x789def012abc345ghi678jkl901mno234pqr567stu890vwx123yza456bcd789efg",
+			Chain:             "ethereum",
+			BlockNumber:       18500095,
+			BlockHash:         "0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+			TransactionIndex:  15,
+			From:              "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+			Value:             "0",
+			Token:             "0xA0b86a33E6441C8C606A57B0e25A3F8A7ad0a93D", // UNI token
+			TokenSymbol:       "UNI",
+			Type:              "contract_call",
+			Status:            "confirmed",
+			GasUsed:           "65432",
+			GasPrice:          "18000000000",
+			TransactionFee:    "0.001177776",
+			Timestamp:         baseTime.Add(-4 * time.Hour),
+			Confirmations:     55,
+			ContractAddress:   "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+			MethodName:        "transfer",
+			TokenTransfers: []TokenTransfer{
+				{
+					From:          "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+					To:            "0x8ba1f109551bD432803012645Hac136c22C4F9B",
+					Value:         "100",
+					TokenAddress:  "0xA0b86a33E6441C8C606A57B0e25A3F8A7ad0a93D",
+					TokenSymbol:   "UNI",
+					TokenDecimals: 18,
+				},
+			},
+		},
+		{
+			Hash:              "0x456ghi789jkl012mno345pqr678stu901vwx234yza567bcd890efg123abc456def",
+			Chain:             "bsc",
+			BlockNumber:       32150200,
+			BlockHash:         "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			TransactionIndex:  8,
+			From:              "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                "0x10ed43c718714eb63d5aa57b78b54704e256024e", // PancakeSwap Router
+			Value:             "0.1",
+			Token:             "BNB",
+			TokenSymbol:       "BNB",
+			Type:              "swap",
+			Status:            "confirmed",
+			GasUsed:           "180000",
+			GasPrice:          "5000000000",
+			TransactionFee:    "0.0009",
+			Timestamp:         baseTime.Add(-6 * time.Hour),
+			Confirmations:     120,
+			ContractAddress:   "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+			MethodName:        "swapExactETHForTokens",
+			TokenTransfers: []TokenTransfer{
+				{
+					From:          "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+					To:            "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+					Value:         "1500.25",
+					TokenAddress:  "0x55d398326f99059fF775485246999027B3197955",
+					TokenSymbol:   "USDT",
+					TokenDecimals: 18,
+				},
+			},
+		},
+		{
+			Hash:              "0xabc123def456ghi789jkl012mno345pqr678stu901vwx234yza567bcd890efg123",
+			Chain:             "ethereum",
+			BlockNumber:       18500085,
+			BlockHash:         "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
+			TransactionIndex:  3,
+			From:              "0x8ba1f109551bD432803012645Hac136c22C4F9B",
+			To:                "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			Value:             "2.0",
+			Token:             "ETH",
+			TokenSymbol:       "ETH",
+			Type:              "transfer",
+			Status:            "confirmed",
+			GasUsed:           "21000",
+			GasPrice:          "22000000000",
+			TransactionFee:    "0.000462",
+			Timestamp:         baseTime.Add(-8 * time.Hour),
+			Confirmations:     65,
+		},
+		{
+			Hash:              "0xdef789ghi012jkl345mno678pqr901stu234vwx567yza890bcd123efg456abc789",
+			Chain:             "ethereum",
+			BlockNumber:       18500080,
+			BlockHash:         "0x5555555555555555555555555555555555555555555555555555555555555555",
+			TransactionIndex:  27,
+			From:              "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			To:                "0x0000000000000000000000000000000000000000",
+			Value:             "0",
+			Token:             "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI
+			TokenSymbol:       "DAI",
+			Type:              "failed",
+			Status:            "failed",
+			GasUsed:           "45000",
+			GasPrice:          "25000000000",
+			TransactionFee:    "0.001125",
+			Timestamp:         baseTime.Add(-12 * time.Hour),
+			Confirmations:     70,
+		},
+	}
+	
+	// Apply block range filters
+	var filteredTxs []*HistoricalTransaction
+	for _, tx := range mockTxs {
+		// Filter by from_block
+		if fromBlock != nil && tx.BlockNumber < *fromBlock {
+			continue
+		}
+		
+		// Filter by to_block
+		if toBlock != nil && tx.BlockNumber > *toBlock {
+			continue
+		}
+		
+		// Filter by address (should be either from or to)
+		if !strings.EqualFold(tx.From, address) && !strings.EqualFold(tx.To, address) {
+			continue
+		}
+		
+		filteredTxs = append(filteredTxs, tx)
+	}
+	
+	return filteredTxs
+}

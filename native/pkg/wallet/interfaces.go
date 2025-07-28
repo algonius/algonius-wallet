@@ -11,4 +11,5 @@ type IWalletManager interface {
 	EstimateGas(ctx context.Context, chain, from, to, amount, token string) (gasLimit uint64, gasPrice string, err error)
 	GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*PendingTransaction, error)
 	RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]TransactionRejectionResult, error)
+	GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*HistoricalTransaction, error)
 }
