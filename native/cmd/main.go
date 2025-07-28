@@ -14,6 +14,7 @@ import (
 
 	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/algonius/algonius-wallet/native/pkg/dex/providers"
+	"github.com/algonius/algonius-wallet/native/pkg/event"
 	"github.com/algonius/algonius-wallet/native/pkg/logger"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/resources"
@@ -114,6 +115,12 @@ func main() {
 	// Create shared wallet manager for both MCP and Native Messaging
 	walletManager := wallet.NewWalletManager()
 
+	// Extract zap logger from the wrapper for EventBroadcaster
+	zapLogger := logr.(*logger.ZapLogger).Logger
+	
+	// Create EventBroadcaster for real-time events to AI Agents
+	eventBroadcaster := event.NewEventBroadcaster(zapLogger)
+
 	logr.Info("Starting Algonius Native Host with both Native Messaging and HTTP/MCP servers")
 
 	// Initialize Native Messaging for browser extension communication
@@ -128,6 +135,7 @@ func main() {
 	// Register wallet RPC methods (only available via Native Messaging)
 	nm.RegisterRpcMethod("import_wallet", handlers.CreateImportWalletHandler(walletManager))
 	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager))
+	nm.RegisterRpcMethod("web3_request", handlers.CreateWeb3RequestHandler(walletManager, eventBroadcaster))
 
 	// Register init, status, shutdown RPC methods
 	nm.RegisterRpcMethod("init", func(req messaging.RpcRequest) (messaging.RpcResponse, error) {
@@ -222,9 +230,9 @@ func main() {
 	confirmTransactionTool := tools.NewConfirmTransactionTool(walletManager)
 	mcp.RegisterTool(s, confirmTransactionTool)
 
-	// Extract zap logger from the wrapper
-	zapLogger := logr.(*logger.ZapLogger).Logger
-	
+	approveTransactionTool := tools.NewApproveTransactionTool(walletManager, eventBroadcaster)
+	mcp.RegisterTool(s, approveTransactionTool)
+
 	// Create DEX aggregator with OKX and Direct providers
 	dexAggregator := dex.NewDEXAggregator(zapLogger)
 	
