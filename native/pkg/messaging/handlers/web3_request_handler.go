@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/algonius/algonius-wallet/native/pkg/errors"
 	"github.com/algonius/algonius-wallet/native/pkg/event"
 	"github.com/algonius/algonius-wallet/native/pkg/messaging"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"

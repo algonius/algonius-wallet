@@ -53,6 +53,14 @@ func (m *MockRejectWalletManager) GetTransactionHistory(ctx context.Context, add
 	return []*wallet.HistoricalTransaction{}, nil
 }
 
+func (m *MockRejectWalletManager) GetAccounts(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+
+func (m *MockRejectWalletManager) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
+	return nil
+}
+
 func TestRejectTransactionTool_GetMeta(t *testing.T) {
 	mockManager := &MockRejectWalletManager{}
 	tool := NewRejectTransactionTool(mockManager)

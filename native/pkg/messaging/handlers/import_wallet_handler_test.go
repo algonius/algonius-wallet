@@ -55,6 +55,14 @@ func (m *MockWalletManagerForImport) GetTransactionHistory(ctx context.Context, 
 	return []*wallet.HistoricalTransaction{}, nil
 }
 
+func (m *MockWalletManagerForImport) GetAccounts(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+
+func (m *MockWalletManagerForImport) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
+	return nil
+}
+
 // ImportError helps simulate specific error types
 type ImportError struct {
 	Reason string

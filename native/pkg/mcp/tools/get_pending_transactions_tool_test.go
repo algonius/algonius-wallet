@@ -19,6 +19,10 @@ func (m *MockWalletManagerWithTransactions) GetPendingTransactions(ctx context.C
 	return m.mockTransactions, nil
 }
 
+func (m *MockWalletManagerWithTransactions) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
+	return nil
+}
+
 func TestGetPendingTransactionsToolMeta(t *testing.T) {
 	mockManager := &MockWalletManager{}
 	tool := NewGetPendingTransactionsTool(mockManager)

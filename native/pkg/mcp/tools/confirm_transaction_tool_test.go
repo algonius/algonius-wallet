@@ -10,24 +10,30 @@ import (
 // MockWalletManager is a mock implementation of wallet.IWalletManager for testing
 type MockWalletManager struct{}
 
-func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, err error) {
-	return "0x123", "0x456", nil
+func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string) (string, string, error) {
+	return "0x1234567890123456789012345678901234567890", "0xabcdef1234567890abcdef1234567890abcdef12", nil
 }
 
-func (m *MockWalletManager) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error) {
-	return "0x123", "0x456", 1234567890, nil
+func (m *MockWalletManager) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (string, string, int64, error) {
+	return "0x1234567890123456789012345678901234567890", "0xabcdef1234567890abcdef1234567890abcdef12", 1234567890, nil
 }
 
-func (m *MockWalletManager) GetBalance(ctx context.Context, address, token string) (string, error) {
-	return "0", nil
+func (m *MockWalletManager) GetBalance(ctx context.Context, address string, token string) (string, error) {
+	return "1.5", nil
 }
 
 func (m *MockWalletManager) GetStatus(ctx context.Context) (*wallet.WalletStatus, error) {
-	return nil, nil
+	return &wallet.WalletStatus{
+		Address:   "0x1234567890123456789012345678901234567890",
+		PublicKey: "0xabcdef1234567890abcdef1234567890abcdef12",
+		Ready:     true,
+		Chains:    make(map[string]bool),
+		LastUsed:  1234567890,
+	}, nil
 }
 
 func (m *MockWalletManager) SendTransaction(ctx context.Context, chain, from, to, amount, token string) (string, error) {
-	return "0xmockhash", nil
+	return "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", nil
 }
 
 func (m *MockWalletManager) EstimateGas(ctx context.Context, chain, from, to, amount, token string) (uint64, string, error) {
@@ -44,6 +50,14 @@ func (m *MockWalletManager) RejectTransactions(ctx context.Context, transactionI
 
 func (m *MockWalletManager) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
 	return []*wallet.HistoricalTransaction{}, nil
+}
+
+func (m *MockWalletManager) GetAccounts(ctx context.Context) ([]string, error) {
+	return []string{"0x1234567890123456789012345678901234567890"}, nil
+}
+
+func (m *MockWalletManager) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
+	return nil
 }
 
 func TestConfirmTransactionTool_GetMeta(t *testing.T) {

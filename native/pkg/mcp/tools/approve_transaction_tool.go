@@ -65,7 +65,7 @@ func (t *ApproveTransactionTool) GetHandler() server.ToolHandlerFunc {
 
 		// Validate action value
 		if action != "approve" && action != "reject" {
-			toolErr := errors.InvalidParameterError("action", "must be 'approve' or 'reject'")
+			toolErr := errors.ValidationError("action", "must be 'approve' or 'reject'")
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
@@ -93,13 +93,13 @@ func (t *ApproveTransactionTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		if targetTx == nil {
-			toolErr := errors.NotFoundError("pending transaction", txHash)
+			toolErr := errors.New(errors.ErrWalletNotFound, fmt.Sprintf("Pending transaction with hash '%s' not found", txHash))
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Check if transaction is still pending
 		if targetTx.Status != "pending" {
-			toolErr := errors.InvalidParameterError("transaction_hash", fmt.Sprintf("transaction is already %s", targetTx.Status))
+			toolErr := errors.ValidationError("transaction_hash", fmt.Sprintf("transaction is already %s", targetTx.Status))
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
