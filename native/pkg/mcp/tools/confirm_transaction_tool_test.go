@@ -46,10 +46,6 @@ func (m *MockWalletManager) GetTransactionHistory(ctx context.Context, address s
 	return []*wallet.HistoricalTransaction{}, nil
 }
 
-func (m *MockWalletManager) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
-	return []*wallet.HistoricalTransaction{}, nil
-}
-
 func TestConfirmTransactionTool_GetMeta(t *testing.T) {
 	mockManager := &MockWalletManager{}
 	tool := NewConfirmTransactionTool(mockManager)
