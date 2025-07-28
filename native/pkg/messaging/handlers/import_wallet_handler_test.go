@@ -51,6 +51,10 @@ func (m *MockWalletManagerForImport) RejectTransactions(ctx context.Context, tra
 	return []wallet.TransactionRejectionResult{}, nil
 }
 
+func (m *MockWalletManagerForImport) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
+	return []*wallet.HistoricalTransaction{}, nil
+}
+
 // ImportError helps simulate specific error types
 type ImportError struct {
 	Reason string
