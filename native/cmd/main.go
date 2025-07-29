@@ -77,23 +77,28 @@ func main() {
 		os.Exit(0)
 	}
 	
-	// Try to acquire PID file lock to prevent multiple instances
-	locked, err := process.LockPIDFile()
-	if err != nil {
-		os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
-		os.Exit(1)
+	// Skip process locking in test mode
+	if os.Getenv("RUN_MODE") != "test" {
+		// Try to acquire PID file lock to prevent multiple instances
+		locked, err := process.LockPIDFile()
+		if err != nil {
+			os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		
+		if !locked {
+			os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
+			os.Exit(1)
+		}
 	}
 	
-	if !locked {
-		os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
-		os.Exit(1)
-	}
-	
-	// Ensure we unlock the PID file when the program exits
+	// Ensure we unlock the PID file when the program exits (only if not in test mode)
 	defer func() {
-		if err := process.UnlockPIDFile(); err != nil {
-			// Log error but don't fail the program
-			os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
+		if os.Getenv("RUN_MODE") != "test" {
+			if err := process.UnlockPIDFile(); err != nil {
+				// Log error but don't fail the program
+				os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
+			}
 		}
 	}()
 
@@ -227,9 +232,6 @@ func main() {
 	sendTransactionTool := tools.NewSendTransactionTool(walletManager)
 	mcp.RegisterTool(s, sendTransactionTool)
 
-	confirmTransactionTool := tools.NewConfirmTransactionTool(walletManager)
-	mcp.RegisterTool(s, confirmTransactionTool)
-
 	approveTransactionTool := tools.NewApproveTransactionTool(walletManager, eventBroadcaster)
 	mcp.RegisterTool(s, approveTransactionTool)
 
@@ -281,9 +283,6 @@ func main() {
 
 	getTransactionHistoryTool := tools.NewGetTransactionHistoryTool(walletManager)
 	mcp.RegisterTool(s, getTransactionHistoryTool)
-
-	rejectTransactionTool := tools.NewRejectTransactionTool(walletManager)
-	mcp.RegisterTool(s, rejectTransactionTool)
 
 	// Create chain factory for simulation tools
 	chainFactory := chain.NewChainFactory()

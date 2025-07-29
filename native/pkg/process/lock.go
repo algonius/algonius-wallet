@@ -3,7 +3,6 @@ package process
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +17,12 @@ const (
 // LockPIDFile creates a PID file to prevent multiple instances
 // Returns true if successfully locked, false if another instance is running
 func LockPIDFile() (bool, error) {
+	return LockPIDFileWithSuffix("")
+}
+
+// LockPIDFileWithSuffix creates a PID file with an optional suffix to prevent multiple instances
+// Returns true if successfully locked, false if another instance is running
+func LockPIDFileWithSuffix(suffix string) (bool, error) {
 	// Get user's home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -26,7 +31,11 @@ func LockPIDFile() (bool, error) {
 	
 	// Create full path to PID file
 	pidDir := filepath.Join(homeDir, ".algonius-wallet")
-	pidFilePath := filepath.Join(pidDir, PIDFileName)
+	fileName := PIDFileName
+	if suffix != "" {
+		fileName = fmt.Sprintf("algonius-wallet-host-%s.pid", suffix)
+	}
+	pidFilePath := filepath.Join(pidDir, fileName)
 	
 	// Ensure the directory exists
 	if err := os.MkdirAll(pidDir, 0700); err != nil {
@@ -36,7 +45,7 @@ func LockPIDFile() (bool, error) {
 	// Check if PID file already exists
 	if _, err := os.Stat(pidFilePath); err == nil {
 		// PID file exists, check if process is still running
-		pidBytes, err := ioutil.ReadFile(pidFilePath)
+		pidBytes, err := os.ReadFile(pidFilePath)
 		if err != nil {
 			// If we can't read the file, remove it and continue
 			_ = os.Remove(pidFilePath)
@@ -65,7 +74,7 @@ func LockPIDFile() (bool, error) {
 	pid := os.Getpid()
 	pidBytes := []byte(strconv.Itoa(pid))
 	
-	if err := ioutil.WriteFile(pidFilePath, pidBytes, 0644); err != nil {
+	if err := os.WriteFile(pidFilePath, pidBytes, 0644); err != nil {
 		return false, fmt.Errorf("failed to write PID file: %w", err)
 	}
 	
@@ -104,7 +113,7 @@ func KillExistingProcess() error {
 	}
 	
 	// Read PID from file
-	pidBytes, err := ioutil.ReadFile(pidFilePath)
+	pidBytes, err := os.ReadFile(pidFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read PID file: %w", err)
 	}
