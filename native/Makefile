@@ -27,7 +27,7 @@ integration-test:
 	@echo "Building binary first..."
 	@$(MAKE) build
 	@echo "Running core integration tests..."
-	DEX_MOCK_MODE=true go test -v -timeout=3m -run "TestChainsSupportedResource$$|TestCreateWalletTool$$|TestGetBalanceTool$$|TestWalletStatusResource$$" ./tests/integration/
+	DEX_MOCK_MODE=true go test -v -timeout=3m -run "TestChainsSupportedResource$$|TestCreateWalletTool$$|TestGetBalanceTool$$|TestWalletStatusResource$$|TestApproveTransactionTool$$" ./tests/integration/
 
 integration-test-extended:
 	@echo "Running extended integration tests..."
