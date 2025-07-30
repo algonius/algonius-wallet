@@ -1,7 +1,7 @@
 import { test as base, chromium, type BrowserContext } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,7 +26,7 @@ function updateManifestFile(extensionId: string) {
       // Ensure directory exists
       const dir = path.dirname(manifestPath);
       if (!existsSync(dir)) {
-        require('fs').mkdirSync(dir, { recursive: true });
+        mkdirSync(dir, { recursive: true });
       }
     } else {
       manifestPath = possiblePaths[1];
