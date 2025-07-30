@@ -82,6 +82,8 @@ type ConfirmationConfig struct {
 // JitoConfig defines MEV protection settings
 type JitoConfig struct {
 	Enabled         bool   `yaml:"enabled"`
+	BaseURL         string `yaml:"base_url"`
+	APIKey          string `yaml:"api_key,omitempty"`
 	BaseTipLamports uint64 `yaml:"base_tip_lamports"`
 	MaxTipLamports  uint64 `yaml:"max_tip_lamports"`
 	TipStrategy     string `yaml:"tip_strategy"`

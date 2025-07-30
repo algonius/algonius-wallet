@@ -29,9 +29,11 @@ chains:
       poll_interval: 3s
       required_confirmations: 1
     
-    # Jito integration (optional)
+    # Jito MEV protection (optional)
     jito:
       enabled: false
+      base_url: https://mainnet.block-engine.jito.wtf/api/v1
+      api_key: ""  # Set via JITO_API_KEY environment variable
       base_tip_lamports: 1000
       max_tip_lamports: 100000
       tip_strategy: exponential
@@ -39,7 +41,7 @@ chains:
     
     # Multi-channel broadcasting with failover
     broadcast:
-      channel: solana-rpc  # Primary channel: solana-rpc, okex, paper
+      channel: solana-rpc  # Primary channel: solana-rpc, okex, jito, jito-bundle, paper
       channels:
         - name: solana-rpc
           enabled: true
@@ -47,6 +49,12 @@ chains:
         - name: okex
           enabled: true
           priority: 2
+        - name: jito
+          enabled: false  # Requires Jito API key
+          priority: 3
+        - name: jito-bundle
+          enabled: false  # Requires Jito API key, provides MEV protection
+          priority: 4
         - name: paper
           enabled: true
           priority: 999

@@ -68,6 +68,20 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 	okexChannel := broadcast.NewOKExChannel(&appConfig.DEX.OKEx, logger)
 	broadcastManager.RegisterChannel(okexChannel)
 	
+	// Add Jito channels (if enabled)
+	if solanaConfig.Jito.Enabled {
+		jitoChannel := broadcast.NewJitoChannel(&solanaConfig.Jito, solanaConfig.RPCEndpoints[0], logger)
+		broadcastManager.RegisterChannel(jitoChannel)
+		
+		jitoBundleChannel := broadcast.NewJitoBundleChannel(&solanaConfig.Jito, solanaConfig.RPCEndpoints[0], logger)
+		// Initialize Jito bundle channel (needs tip account setup)
+		if err := jitoBundleChannel.Init(context.Background()); err != nil {
+			logger.Warn("Failed to initialize Jito bundle channel", zap.Error(err))
+		} else {
+			broadcastManager.RegisterChannel(jitoBundleChannel)
+		}
+	}
+	
 	paperChannel := broadcast.NewPaperChannel(logger)
 	broadcastManager.RegisterChannel(paperChannel)
 	
