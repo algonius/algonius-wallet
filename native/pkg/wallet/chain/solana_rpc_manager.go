@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -19,7 +19,8 @@ import (
 type SolanaRPCManager struct {
 	httpClient *http.Client
 	endpoints  []string
-	currentIdx atomic.Uint32
+	currentIdx int
+	mutex      sync.RWMutex
 	logger     *zap.Logger
 	runMode    string
 }
@@ -29,14 +30,14 @@ type RPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      int         `json:"id"`
 	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
+	Params  any `json:"params"`
 }
 
 // RPCResponse represents a JSON-RPC response
 type RPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      int         `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
+	Result  any `json:"result,omitempty"`
 	Error   *RPCError   `json:"error,omitempty"`
 }
 
@@ -98,31 +99,36 @@ func NewSolanaRPCManager(endpoints []string, logger *zap.Logger) (*SolanaRPCMana
 
 // getCurrentEndpoint returns the current active RPC endpoint
 func (rm *SolanaRPCManager) getCurrentEndpoint() string {
-	idx := rm.currentIdx.Load() % uint32(len(rm.endpoints))
+	rm.mutex.RLock()
+	defer rm.mutex.RUnlock()
+	idx := rm.currentIdx % len(rm.endpoints)
 	return rm.endpoints[idx]
 }
 
 // switchToNext switches to the next available RPC endpoint
 func (rm *SolanaRPCManager) switchToNext() {
-	old := rm.currentIdx.Load()
-	new := (old + 1) % uint32(len(rm.endpoints))
+	rm.mutex.Lock()
+	defer rm.mutex.Unlock()
 	
-	if rm.currentIdx.CompareAndSwap(old, new) {
-		rm.logger.Warn("Switched to backup RPC endpoint", 
-			zap.String("from", rm.endpoints[old]),
-			zap.String("to", rm.endpoints[new]))
-	}
+	old := rm.currentIdx
+	rm.currentIdx = (old + 1) % len(rm.endpoints)
+	
+	rm.logger.Warn("Switched to backup RPC endpoint", 
+		zap.String("from", rm.endpoints[old]),
+		zap.String("to", rm.endpoints[rm.currentIdx]))
 }
 
 // callRPC makes a JSON-RPC call to the Solana network
-func (rm *SolanaRPCManager) callRPC(ctx context.Context, method string, params interface{}, result interface{}) error {
+func (rm *SolanaRPCManager) callRPC(ctx context.Context, method string, params any, result any) error {
 	if rm.runMode == "test" {
 		// In test mode, return mock responses
 		return rm.executeMockOperation(method, result)
 	}
 	
 	var lastErr error
-	startIdx := rm.currentIdx.Load()
+	rm.mutex.RLock()
+	startIdx := rm.currentIdx
+	rm.mutex.RUnlock()
 	
 	// Try all endpoints
 	for i := 0; i < len(rm.endpoints); i++ {
@@ -135,7 +141,10 @@ func (rm *SolanaRPCManager) callRPC(ctx context.Context, method string, params i
 		
 		if err := rm.doRPCCall(ctx, endpoint, method, params, result); err == nil {
 			// Success - reset to working endpoint if we had switched
-			if rm.currentIdx.Load() != startIdx {
+			rm.mutex.RLock()
+			currentIdx := rm.currentIdx
+			rm.mutex.RUnlock()
+			if currentIdx != startIdx {
 				rm.logger.Info("RPC operation successful, staying on current endpoint")
 			}
 			return nil
@@ -157,7 +166,7 @@ func (rm *SolanaRPCManager) callRPC(ctx context.Context, method string, params i
 }
 
 // doRPCCall performs the actual HTTP JSON-RPC call
-func (rm *SolanaRPCManager) doRPCCall(ctx context.Context, endpoint, method string, params interface{}, result interface{}) error {
+func (rm *SolanaRPCManager) doRPCCall(ctx context.Context, endpoint, method string, params any, result any) error {
 	request := RPCRequest{
 		JSONRPC: "2.0",
 		ID:      1,
@@ -211,7 +220,7 @@ func (rm *SolanaRPCManager) doRPCCall(ctx context.Context, endpoint, method stri
 }
 
 // executeMockOperation provides mock responses for testing
-func (rm *SolanaRPCManager) executeMockOperation(method string, result interface{}) error {
+func (rm *SolanaRPCManager) executeMockOperation(method string, result any) error {
 	rm.logger.Debug("Executing mock RPC operation for testing", zap.String("method", method))
 	
 	// Simulate network delay
@@ -244,7 +253,7 @@ func (rm *SolanaRPCManager) executeMockOperation(method string, result interface
 // GetLatestBlockhash gets the latest blockhash with failover
 func (rm *SolanaRPCManager) GetLatestBlockhash(ctx context.Context, commitment string) (*BlockhashResult, error) {
 	var result BlockhashResult
-	params := map[string]interface{}{
+	params := map[string]any{
 		"commitment": commitment,
 	}
 	
@@ -255,9 +264,9 @@ func (rm *SolanaRPCManager) GetLatestBlockhash(ctx context.Context, commitment s
 // SendTransaction sends a transaction with failover
 func (rm *SolanaRPCManager) SendTransaction(ctx context.Context, transaction string) (string, error) {
 	var result string
-	params := []interface{}{
+	params := []any{
 		transaction,
-		map[string]interface{}{
+		map[string]any{
 			"encoding": "base64",
 		},
 	}
@@ -269,9 +278,9 @@ func (rm *SolanaRPCManager) SendTransaction(ctx context.Context, transaction str
 // GetSignatureStatus gets transaction status with failover
 func (rm *SolanaRPCManager) GetSignatureStatus(ctx context.Context, signature string) (*SignatureStatusResult, error) {
 	var result SignatureStatusResult
-	params := []interface{}{
+	params := []any{
 		[]string{signature},
-		map[string]interface{}{
+		map[string]any{
 			"searchTransactionHistory": true,
 		},
 	}
@@ -283,9 +292,9 @@ func (rm *SolanaRPCManager) GetSignatureStatus(ctx context.Context, signature st
 // GetBalance gets account balance with failover
 func (rm *SolanaRPCManager) GetBalance(ctx context.Context, address string, commitment string) (*BalanceResult, error) {
 	var result BalanceResult
-	params := []interface{}{
+	params := []any{
 		address,
-		map[string]interface{}{
+		map[string]any{
 			"commitment": commitment,
 		},
 	}

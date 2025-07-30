@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 	"go.uber.org/zap"
 )
 
@@ -101,7 +101,7 @@ type BroadcastChannel struct {
 	Name     string                 `yaml:"name"`
 	Enabled  bool                   `yaml:"enabled"`
 	Priority int                    `yaml:"priority"`
-	Config   map[string]interface{} `yaml:"config"`
+	Config   map[string]any `yaml:"config"`
 }
 
 // DEXConfig contains DEX aggregator configurations

@@ -11,7 +11,7 @@ import (
 
 	"github.com/algonius/algonius-wallet/native/pkg/clients/jito"
 	"github.com/algonius/algonius-wallet/native/pkg/config"
-	"github.com/gagliardetto/solana-go"
+	solana "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"go.uber.org/zap"
