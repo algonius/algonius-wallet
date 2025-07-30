@@ -58,16 +58,13 @@ export function validateMnemonic(mnemonic: string): MnemonicValidation {
     errors.push(`Invalid words: ${invalidWords.join(', ')}`);
   }
 
-  // Check for duplicates
-  const uniqueWords = new Set(words);
-  if (uniqueWords.size !== words.length) {
-    errors.push('Mnemonic contains duplicate words');
-  }
-
   // Check for empty words
   if (words.some(word => word === '')) {
     errors.push('Mnemonic contains empty words');
   }
+
+  // Note: BIP39 allows duplicate words as long as the checksum is valid
+  // The actual validation is done in the native backend which has a complete BIP39 implementation
 
   return {
     isValid: errors.length === 0,
