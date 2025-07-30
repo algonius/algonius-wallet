@@ -365,8 +365,8 @@ func (rm *SolanaRetryManager) executeMockTransaction(_ context.Context, params *
 }
 
 // GetRetryStatistics returns statistics about retry behavior
-func (rm *SolanaRetryManager) GetRetryStatistics() map[string]interface{} {
-	return map[string]interface{}{
+func (rm *SolanaRetryManager) GetRetryStatistics() map[string]any {
+	return map[string]any{
 		"max_retries":             rm.config.MaxRetries,
 		"slippage_increment_bps":  rm.config.SlippageIncrementBps,
 		"base_retry_delay":        rm.config.BaseRetryDelay.String(),

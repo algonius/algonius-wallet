@@ -199,7 +199,16 @@ func (s *SolanaChain) GetBalance(ctx context.Context, address string, token stri
 		if err == nil {
 			// Convert lamports to SOL (1 SOL = 1,000,000,000 lamports)
 			balanceSOL := float64(result.Value) / 1000000000.0
-			balanceStr := fmt.Sprintf("%.9f", balanceSOL)
+			
+			// Format balance: for zero balance, return "0", otherwise show appropriate precision
+			var balanceStr string
+			if result.Value == 0 {
+				balanceStr = "0"
+			} else if balanceSOL >= 1 {
+				balanceStr = fmt.Sprintf("%.6f", balanceSOL)
+			} else {
+				balanceStr = fmt.Sprintf("%.9f", balanceSOL)
+			}
 			
 			s.logger.Debug("Solana balance retrieved via RPC",
 				zap.String("address", address),
@@ -400,7 +409,7 @@ func (s *SolanaChain) executeTransactionAttempt(ctx context.Context, params *Tra
 		MaxRetries:         3,
 		PreflightCommitment: s.config.Commitment,
 		Timeout:            30 * time.Second,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"blockhash":      params.RecentBlockhash,
 			"jito_tip":       params.JitoTipAmount,
 			"slippage":       params.Slippage,
@@ -452,10 +461,6 @@ func (s *SolanaChain) createTransaction(params *TransactionParams) ([]byte, stri
 	return simulatedTxData, simulatedSignature
 }
 
-// createMockTransactionData creates mock transaction data for testing (deprecated - use createTransaction)
-func (s *SolanaChain) createMockTransactionData(_ *TransactionParams) string {
-	return "MockTransactionData123456789abcdef"
-}
 
 // createMockTransaction creates a mock transaction signature for fallback
 func (s *SolanaChain) createMockTransaction(from, to, amount, token string) (string, error) {
@@ -474,10 +479,6 @@ func (s *SolanaChain) createMockTransaction(from, to, amount, token string) (str
 	return signature, nil
 }
 
-// createMockTransactionSignature creates a mock signature for testing
-func (s *SolanaChain) createMockTransactionSignature() string {
-	return "MockTxSignature123456789abcdef0123456789abcdef0123456789abcdef"
-}
 
 // EstimateGas estimates gas requirements for a Solana transaction
 // Note: Solana uses "compute units" instead of gas
