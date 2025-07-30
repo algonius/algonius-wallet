@@ -232,7 +232,7 @@ func main() {
 	sendTransactionTool := tools.NewSendTransactionTool(walletManager)
 	mcp.RegisterTool(s, sendTransactionTool)
 
-	approveTransactionTool := tools.NewApproveTransactionTool(walletManager, eventBroadcaster)
+	approveTransactionTool := tools.NewApproveTransactionTool(walletManager, eventBroadcaster, zapLogger)
 	mcp.RegisterTool(s, approveTransactionTool)
 
 	// Create DEX aggregator with OKX and Direct providers
