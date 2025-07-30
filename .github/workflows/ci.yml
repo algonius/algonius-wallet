@@ -128,9 +128,7 @@ jobs:
           cp native/bin/algonius-wallet-host $HOME/.algonius-wallet/bin/
           chmod 755 $HOME/.algonius-wallet/bin/algonius-wallet-host
           
-          # Install the manifest file
-          mkdir -p $HOME/.algonius-wallet
-          # Create manifest with correct extension ID for testing
+          # Create native host manifest in Chrome's native messaging directory
           # Note: The native host name should match what's used in McpHostManager.ts
           mkdir -p $HOME/.config/google-chrome/NativeMessagingHosts
           echo '{
@@ -142,6 +140,16 @@ jobs:
               "chrome-extension://abcdefghijklmnopqrstuvwxyz012345/"
             ]
           }' > $HOME/.config/google-chrome/NativeMessagingHosts/ai.algonius.wallet.json
+          
+          # Also create in legacy location for compatibility
+          mkdir -p $HOME/.algonius-wallet
+          cp $HOME/.config/google-chrome/NativeMessagingHosts/ai.algonius.wallet.json $HOME/.algonius-wallet/ai.algonius.wallet.json
+          
+          # Test native host binary
+          echo "Testing native host binary..."
+          $HOME/.algonius-wallet/bin/algonius-wallet-host --version || echo "Version command failed, but binary exists"
+          ls -la $HOME/.algonius-wallet/bin/
+          ls -la $HOME/.config/google-chrome/NativeMessagingHosts/
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
