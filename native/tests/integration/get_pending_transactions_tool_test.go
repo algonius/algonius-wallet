@@ -13,19 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Helper function to extract text content from MCP result
-func getTextContent(result *mcp.CallToolResult) string {
-	if result == nil || len(result.Content) == 0 {
-		return ""
-	}
-	
-	textContent, ok := mcp.AsTextContent(result.Content[0])
-	if !ok {
-		return ""
-	}
-	
-	return textContent.Text
-}
 
 func TestGetPendingTransactionsTool(t *testing.T) {
 	ctx := context.Background()

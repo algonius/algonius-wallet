@@ -743,3 +743,44 @@ func (wm *WalletManager) generateMockHistoricalTransactions(address string, from
 	
 	return filteredTxs
 }
+
+// GetAccounts returns available wallet addresses
+func (wm *WalletManager) GetAccounts(ctx context.Context) ([]string, error) {
+	// In a real implementation, this would return all available wallet addresses
+	// For now, return the current wallet address if available
+	if wm.currentWallet == nil || wm.currentWallet.Address == "" {
+		return []string{}, nil
+	}
+	
+	return []string{wm.currentWallet.Address}, nil
+}
+
+// AddPendingTransaction adds a new pending transaction to the queue
+func (wm *WalletManager) AddPendingTransaction(ctx context.Context, tx *PendingTransaction) error {
+	if tx == nil {
+		return errors.New("transaction cannot be nil")
+	}
+	
+	// Basic validation
+	if tx.Hash == "" {
+		return errors.New("transaction hash is required")
+	}
+	if tx.From == "" {
+		return errors.New("from address is required")
+	}
+	if tx.To == "" {
+		return errors.New("to address is required")
+	}
+	
+	// Check if transaction already exists
+	for _, existing := range wm.pendingTxs {
+		if existing.Hash == tx.Hash {
+			return fmt.Errorf("transaction with hash %s already exists", tx.Hash)
+		}
+	}
+	
+	// Add to pending transactions
+	wm.pendingTxs = append(wm.pendingTxs, tx)
+	
+	return nil
+}

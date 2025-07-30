@@ -56,6 +56,14 @@ func (m *MockWalletManagerWithHistory) GetTransactionHistory(ctx context.Context
 	return m.mockHistoricalTransactions, nil
 }
 
+func (m *MockWalletManagerWithHistory) GetAccounts(ctx context.Context) ([]string, error) {
+	return []string{}, nil
+}
+
+func (m *MockWalletManagerWithHistory) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
+	return nil
+}
+
 func TestGetTransactionHistoryToolMeta(t *testing.T) {
 	mockManager := &MockWalletManagerWithHistory{}
 	tool := NewGetTransactionHistoryTool(mockManager)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/algonius/algonius-wallet/native/pkg/dex/providers"
+	"github.com/algonius/algonius-wallet/native/pkg/event"
 	"github.com/algonius/algonius-wallet/native/pkg/logger"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/resources"
@@ -76,23 +77,28 @@ func main() {
 		os.Exit(0)
 	}
 	
-	// Try to acquire PID file lock to prevent multiple instances
-	locked, err := process.LockPIDFile()
-	if err != nil {
-		os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
-		os.Exit(1)
+	// Skip process locking in test mode
+	if os.Getenv("RUN_MODE") != "test" {
+		// Try to acquire PID file lock to prevent multiple instances
+		locked, err := process.LockPIDFile()
+		if err != nil {
+			os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		
+		if !locked {
+			os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
+			os.Exit(1)
+		}
 	}
 	
-	if !locked {
-		os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
-		os.Exit(1)
-	}
-	
-	// Ensure we unlock the PID file when the program exits
+	// Ensure we unlock the PID file when the program exits (only if not in test mode)
 	defer func() {
-		if err := process.UnlockPIDFile(); err != nil {
-			// Log error but don't fail the program
-			os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
+		if os.Getenv("RUN_MODE") != "test" {
+			if err := process.UnlockPIDFile(); err != nil {
+				// Log error but don't fail the program
+				os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
+			}
 		}
 	}()
 
@@ -114,6 +120,12 @@ func main() {
 	// Create shared wallet manager for both MCP and Native Messaging
 	walletManager := wallet.NewWalletManager()
 
+	// Extract zap logger from the wrapper for EventBroadcaster
+	zapLogger := logr.(*logger.ZapLogger).Logger
+	
+	// Create EventBroadcaster for real-time events to AI Agents
+	eventBroadcaster := event.NewEventBroadcaster(zapLogger)
+
 	logr.Info("Starting Algonius Native Host with both Native Messaging and HTTP/MCP servers")
 
 	// Initialize Native Messaging for browser extension communication
@@ -128,6 +140,7 @@ func main() {
 	// Register wallet RPC methods (only available via Native Messaging)
 	nm.RegisterRpcMethod("import_wallet", handlers.CreateImportWalletHandler(walletManager))
 	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager))
+	nm.RegisterRpcMethod("web3_request", handlers.CreateWeb3RequestHandler(walletManager, eventBroadcaster))
 
 	// Register init, status, shutdown RPC methods
 	nm.RegisterRpcMethod("init", func(req messaging.RpcRequest) (messaging.RpcResponse, error) {
@@ -219,12 +232,9 @@ func main() {
 	sendTransactionTool := tools.NewSendTransactionTool(walletManager)
 	mcp.RegisterTool(s, sendTransactionTool)
 
-	confirmTransactionTool := tools.NewConfirmTransactionTool(walletManager)
-	mcp.RegisterTool(s, confirmTransactionTool)
+	approveTransactionTool := tools.NewApproveTransactionTool(walletManager, eventBroadcaster, zapLogger)
+	mcp.RegisterTool(s, approveTransactionTool)
 
-	// Extract zap logger from the wrapper
-	zapLogger := logr.(*logger.ZapLogger).Logger
-	
 	// Create DEX aggregator with OKX and Direct providers
 	dexAggregator := dex.NewDEXAggregator(zapLogger)
 	
@@ -273,9 +283,6 @@ func main() {
 
 	getTransactionHistoryTool := tools.NewGetTransactionHistoryTool(walletManager)
 	mcp.RegisterTool(s, getTransactionHistoryTool)
-
-	rejectTransactionTool := tools.NewRejectTransactionTool(walletManager)
-	mcp.RegisterTool(s, rejectTransactionTool)
 
 	// Create chain factory for simulation tools
 	chainFactory := chain.NewChainFactory()

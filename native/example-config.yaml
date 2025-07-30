@@ -1,0 +1,118 @@
+# Example configuration for Algonius Wallet with OKEx integration
+# Copy this to ~/.algonius-wallet/config.yaml and customize as needed
+
+wallet:
+  data_dir: ~/.algonius-wallet
+  network_mode: mainnet
+
+chains:
+  solana:
+    enabled: true
+    rpc_endpoints:
+      - https://api.mainnet-beta.solana.com
+      - https://solana-api.projectserum.com
+    ws_endpoint: wss://api.mainnet-beta.solana.com
+    commitment: confirmed
+    reserve_sol: 0.01
+    
+    # Enhanced retry mechanism with slippage management
+    retry:
+      max_retries: 3
+      slippage_increment_bps: 50      # Increase slippage by 0.5% per retry
+      base_retry_delay: 2s            # Initial delay between retries
+      max_total_slippage_bps: 1000    # Maximum total slippage (10%)
+      gas_strategy: level_up          # Gas strategy: level_up, multiply, fixed
+    
+    # Confirmation settings
+    confirmation:
+      timeout: 2m
+      poll_interval: 3s
+      required_confirmations: 1
+    
+    # Jito MEV protection (optional)
+    jito:
+      enabled: false
+      base_url: https://mainnet.block-engine.jito.wtf/api/v1
+      api_key: ""  # Set via JITO_API_KEY environment variable
+      base_tip_lamports: 1000
+      max_tip_lamports: 100000
+      tip_strategy: exponential
+      bundle_endpoint: https://mainnet.block-engine.jito.wtf/api/v1/bundles
+    
+    # Multi-channel broadcasting with failover
+    broadcast:
+      channel: solana-rpc  # Primary channel: solana-rpc, okex, jito, jito-bundle, paper
+      channels:
+        - name: solana-rpc
+          enabled: true
+          priority: 1
+        - name: okex
+          enabled: true
+          priority: 2
+        - name: jito
+          enabled: false  # Requires Jito API key
+          priority: 3
+        - name: jito-bundle
+          enabled: false  # Requires Jito API key, provides MEV protection
+          priority: 4
+        - name: paper
+          enabled: true
+          priority: 999
+
+# DEX configurations
+dex:
+  # OKX DEX integration with real API support
+  okex:
+    enabled: true
+    broadcast_channel: okex
+    
+    # API credentials (can also be set via environment variables)
+    # OKEX_API_KEY, OKEX_API_SECRET, OKEX_PASSPHRASE, OKEX_PROJECT_ID
+    api_key: ""
+    secret_key: ""
+    passphrase: ""
+    project_id: ""
+    
+    base_url: https://www.okx.com
+    timeout: 30
+    
+    # Rate limiting to respect API limits
+    rate_limit:
+      rpm: 20    # Requests per minute
+      burst: 1   # Burst capacity
+  
+  # Jupiter aggregator (Solana DEX)
+  jupiter:
+    enabled: true
+    broadcast_channel: solana-rpc
+    base_url: https://quote-api.jup.ag
+    timeout: 30
+  
+  # PumpFun DEX support
+  pumpfun:
+    enabled: false
+    broadcast_channel: solana-rpc
+    base_url: https://pumpportal.fun
+    timeout: 30
+  
+  # Composite DEX strategy
+  composite:
+    strategy: best_price  # best_price, fastest, cheapest
+    max_providers: 3
+    timeout: 30s
+
+# Security settings
+security:
+  encryption_enabled: true
+  key_derivation_path: "m/44'/501'/0'/0'"
+  session_timeout: 3600
+  require_password: true
+
+# Logging configuration
+logging:
+  level: info            # debug, info, warn, error
+  format: json          # json, text
+  output_file: ""       # Empty for stdout
+  max_size: 100         # MB
+  max_backups: 3
+  max_age: 30           # days

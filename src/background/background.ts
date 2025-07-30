@@ -83,7 +83,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   }
   
-  // Handle content script messages for Web3 provider functionality
+  // Handle content script messages for Web3 provider functionality  
+  if (typeof request === "object" && request !== null && "type" in request && request.type === "ALGONIUS_WALLET_FORWARD") {
+    handleWeb3Request(request.data, sender, sendResponse);
+    return true;
+  }
+  
+  // Handle direct Web3 requests (legacy support)
   if (typeof request === "object" && request !== null && "method" in request) {
     handleWeb3Request(request, sender, sendResponse);
     return true;

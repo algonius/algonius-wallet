@@ -48,8 +48,17 @@ func NewChainFactoryWithDEX(dexAggregator dex.IDEXAggregator, logger *zap.Logger
 	factory.RegisterChain("ETHEREUM", NewETHChain(dexAggregator, logger))
 	factory.RegisterChain("BSC", NewBSCChain(dexAggregator, logger))
 	factory.RegisterChain("BINANCE", NewBSCChain(dexAggregator, logger))
-	factory.RegisterChain("SOL", NewSolanaChain(dexAggregator, logger))
-	factory.RegisterChain("SOLANA", NewSolanaChain(dexAggregator, logger))
+	// Handle potential error from NewSolanaChain
+	if solanaChain, err := NewSolanaChain(dexAggregator, logger); err == nil {
+		factory.RegisterChain("SOL", solanaChain)
+		factory.RegisterChain("SOLANA", solanaChain)
+	} else {
+		// Fallback to legacy Solana chain if enhanced version fails
+		logger.Warn("Failed to create enhanced Solana chain, using legacy version", zap.Error(err))
+		legacyChain := NewSolanaChainLegacy()
+		factory.RegisterChain("SOL", legacyChain)
+		factory.RegisterChain("SOLANA", legacyChain)
+	}
 
 	return factory
 }
@@ -105,8 +114,19 @@ func (cf *ChainFactory) SetDEXAggregator(dexAggregator dex.IDEXAggregator, logge
 	cf.chains["ETHEREUM"] = NewETHChain(dexAggregator, logger)
 	cf.chains["BSC"] = NewBSCChain(dexAggregator, logger)
 	cf.chains["BINANCE"] = NewBSCChain(dexAggregator, logger)
-	cf.chains["SOL"] = NewSolanaChain(dexAggregator, logger)
-	cf.chains["SOLANA"] = NewSolanaChain(dexAggregator, logger)
+	// Handle potential error from NewSolanaChain
+	if solanaChain, err := NewSolanaChain(dexAggregator, logger); err == nil {
+		cf.chains["SOL"] = solanaChain
+		cf.chains["SOLANA"] = solanaChain
+	} else {
+		// Fallback to legacy Solana chain if enhanced version fails
+		if logger != nil {
+			logger.Warn("Failed to create enhanced Solana chain, using legacy version", zap.Error(err))
+		}
+		legacyChain := NewSolanaChainLegacy()
+		cf.chains["SOL"] = legacyChain
+		cf.chains["SOLANA"] = legacyChain
+	}
 
 	if logger != nil {
 		logger.Info("Chain factory updated with DEX aggregator support")

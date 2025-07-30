@@ -23,8 +23,25 @@ unit-test:
 	go test -v $(PKG_PATH)/... ./pkg/...
 
 integration-test:
-	@echo "Running tests..."
-	go test -v -timeout=10m -parallel=8 ./tests/...
+	@echo "Running integration tests..."
+	@echo "Building binary first..."
+	@$(MAKE) build
+	@echo "Running core integration tests..."
+	DEX_MOCK_MODE=true go test -v -timeout=3m -run "TestChainsSupportedResource$$|TestCreateWalletTool$$|TestGetBalanceTool$$|TestWalletStatusResource$$|TestApproveTransactionTool$$" ./tests/integration/
+
+integration-test-extended:
+	@echo "Running extended integration tests..."
+	@echo "Building binary first..."
+	@$(MAKE) build
+	@echo "Running additional working integration tests..."
+	DEX_MOCK_MODE=true go test -v -timeout=5m -run "TestChains|TestCreate|TestGetBalance|TestWalletStatus|TestGetPendingTransactions|TestSendTransaction|TestSwap|TestImport|TestSSE" ./tests/integration/
+
+integration-test-all:
+	@echo "Running ALL integration tests..."
+	@echo "Building binary first..."
+	@$(MAKE) build
+	@echo "Running all tests with extended timeout..."
+	DEX_MOCK_MODE=true go test -v -timeout=10m ./tests/integration/...
 
 test: unit-test integration-test
 
@@ -64,9 +81,25 @@ uninstall:
 	sudo rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 	@echo "Native host uninstalled"
 
-.PHONY: all build unit-test integration-test test run clean install uninstall lint kill
+.PHONY: all build unit-test integration-test integration-test-extended integration-test-all test run clean install uninstall lint kill help
 
 kill:
 	@echo "Killing any running instances of algonius-wallet-host..."
 	@-pkill -f algonius-wallet-host 2>/dev/null || true
 	@echo "Done."
+
+help:
+	@echo "Available targets:"
+	@echo "  build                     - Build the native host binary"
+	@echo "  unit-test                 - Run unit tests"
+	@echo "  integration-test          - Run core integration tests"
+	@echo "  integration-test-extended - Run extended integration tests"
+	@echo "  integration-test-all      - Run ALL integration tests"
+	@echo "  test                      - Run both unit and core integration tests"
+	@echo "  lint                      - Run linter"
+	@echo "  run                       - Run the native host"
+	@echo "  install                   - Install the native host"
+	@echo "  uninstall                 - Uninstall the native host"
+	@echo "  kill                      - Kill any running instances"
+	@echo "  clean                     - Clean build artifacts"
+	@echo "  help                      - Show this help"

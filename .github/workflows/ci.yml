@@ -48,7 +48,7 @@ jobs:
         run: make unit-test
 
       - name: Integration test native host
-        run: make integration-test
+        run: make integration-test-all
 
       - name: Upload native host binary
         uses: actions/upload-artifact@v4

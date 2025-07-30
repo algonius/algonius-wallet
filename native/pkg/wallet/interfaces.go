@@ -12,4 +12,6 @@ type IWalletManager interface {
 	GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*PendingTransaction, error)
 	RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]TransactionRejectionResult, error)
 	GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*HistoricalTransaction, error)
+	GetAccounts(ctx context.Context) ([]string, error)
+	AddPendingTransaction(ctx context.Context, tx *PendingTransaction) error
 }
