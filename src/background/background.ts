@@ -108,7 +108,7 @@ async function handleNativeRpc(
   sendResponse: (response?: unknown) => void
 ) {
   try {
-    console.log('Native RPC:', (request as any)?.method);
+    console.log('Native RPC:', (request as { method?: string })?.method);
     
     if (!mcpHostManager.getStatus().isConnected) {
       console.log('❌ MCP Host not connected');

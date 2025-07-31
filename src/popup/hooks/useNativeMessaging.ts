@@ -42,12 +42,12 @@ export function useNativeMessaging() {
         success: true,
         result: response as WalletCreationResult
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: {
           code: -1,
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: 'Unknown error'
         }
       };
     }
@@ -63,12 +63,12 @@ export function useNativeMessaging() {
         success: true,
         result: response as WalletImportResult
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: {
           code: -1,
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: 'Unknown error'
         }
       };
     }
@@ -93,12 +93,12 @@ export function useNativeMessaging() {
         success: true,
         result: response as WalletImportResult
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: {
           code: -1,
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: 'Unknown error'
         }
       };
     }
@@ -111,7 +111,7 @@ export function useNativeMessaging() {
     try {
       await sendRpcRequest('lock_wallet', {});
       return { success: true };
-    } catch (error) {
+    } catch {
       return { success: false };
     }
   }, [sendRpcRequest]);
@@ -131,7 +131,7 @@ export function useNativeMessaging() {
         isUnlocked: boolean;
         address?: string;
       };
-    } catch (error) {
+    } catch {
       return {
         hasWallet: false,
         isUnlocked: false
