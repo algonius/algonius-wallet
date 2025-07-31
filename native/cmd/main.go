@@ -78,30 +78,24 @@ func main() {
 		os.Exit(0)
 	}
 	
-	// Skip process locking if ALGONIUS_WALLET_HOME is set (indicating test/isolated environment)
-	isIsolatedEnvironment := os.Getenv("ALGONIUS_WALLET_HOME") != ""
-	
-	if !isIsolatedEnvironment {
-		// Try to acquire PID file lock to prevent multiple instances
-		locked, err := process.LockPIDFile()
-		if err != nil {
-			os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
-			os.Exit(1)
-		}
-		
-		if !locked {
-			os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
-			os.Exit(1)
-		}
+	// Try to acquire PID file lock to prevent multiple instances
+	// PID file location now respects ALGONIUS_WALLET_HOME environment variable
+	locked, err := process.LockPIDFile()
+	if err != nil {
+		os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
+		os.Exit(1)
 	}
 	
-	// Ensure we unlock the PID file when the program exits (only if not in isolated environment)
+	if !locked {
+		os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
+		os.Exit(1)
+	}
+	
+	// Ensure we unlock the PID file when the program exits
 	defer func() {
-		if !isIsolatedEnvironment {
-			if err := process.UnlockPIDFile(); err != nil {
-				// Log error but don't fail the program
-				os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
-			}
+		if err := process.UnlockPIDFile(); err != nil {
+			// Log error but don't fail the program
+			os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
 		}
 	}()
 
