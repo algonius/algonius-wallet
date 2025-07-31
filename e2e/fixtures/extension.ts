@@ -11,8 +11,9 @@ const __dirname = path.dirname(__filename);
 function updateManifestFile(extensionId: string) {
   // Check multiple possible locations for the native messaging manifest
   const possiblePaths = [
-    path.join(homedir(), '.config', 'google-chrome', 'NativeMessagingHosts', 'ai.algonius.wallet.json'),
-    path.join(homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'NativeMessagingHosts', 'ai.algonius.wallet.json'),
+    path.join(homedir(), '.config', 'chromium', 'NativeMessagingHosts', 'ai.algonius.wallet.json'), // Chromium on Linux
+    path.join(homedir(), '.config', 'google-chrome', 'NativeMessagingHosts', 'ai.algonius.wallet.json'), // Chrome on Linux
+    path.join(homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'NativeMessagingHosts', 'ai.algonius.wallet.json'), // Chrome on macOS
     path.join(homedir(), '.algonius-wallet', 'ai.algonius.wallet.json'), // CI location
     path.join(homedir(), '.algonius-wallet', 'com.algonius.wallet.json'), // Legacy location
   ];
@@ -40,7 +41,8 @@ function updateManifestFile(extensionId: string) {
     
     if (manifestsToUpdate.length === 0) {
       // Create a new manifest if none exist
-      manifestPath = process.env.CI ? possiblePaths[0] : possiblePaths[1];
+      // For CI, prefer Chromium path; for local dev, prefer Chrome macOS path
+      manifestPath = process.env.CI ? possiblePaths[0] : possiblePaths[2];
       const dir = path.dirname(manifestPath);
       if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
