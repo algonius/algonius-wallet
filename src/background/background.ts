@@ -108,7 +108,10 @@ async function handleNativeRpc(
   sendResponse: (response?: unknown) => void
 ) {
   try {
+    console.log('Native RPC:', (request as any)?.method);
+    
     if (!mcpHostManager.getStatus().isConnected) {
+      console.log('❌ MCP Host not connected');
       sendResponse({ error: { message: 'MCP Host not connected' } });
       return;
     }
@@ -119,27 +122,31 @@ async function handleNativeRpc(
       !("method" in request) ||
       !("params" in request)
     ) {
+      console.log('❌ Invalid RPC request format');
       sendResponse({ error: { message: "Invalid native RPC request" } });
       return;
     }
 
     const { method, params } = request as { method: string; params: unknown };
-
+    
     // Forward the request to MCP Host via RPC
     const response = await mcpHostManager.rpcRequest({
       method,
       params
     });
-
+    
     if (response.error) {
+      console.log('❌ RPC Error:', response.error);
       sendResponse({ error: response.error });
     } else {
-      sendResponse(response.result);
+      console.log('✅ RPC Success');
+      sendResponse({ result: response.result });
     }
   } catch (error) {
     console.error('Native RPC request failed:', error);
     sendResponse({ 
       error: { 
+        code: -32603,
         message: error instanceof Error ? error.message : String(error) 
       } 
     });

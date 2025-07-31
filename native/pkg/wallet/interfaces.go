@@ -14,4 +14,11 @@ type IWalletManager interface {
 	GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*HistoricalTransaction, error)
 	GetAccounts(ctx context.Context) ([]string, error)
 	AddPendingTransaction(ctx context.Context, tx *PendingTransaction) error
+	
+	// Wallet storage and security methods
+	UnlockWallet(password string) error
+	LockWallet()
+	IsUnlocked() bool
+	HasWallet() bool
+	GetCurrentWallet() *WalletStatus
 }

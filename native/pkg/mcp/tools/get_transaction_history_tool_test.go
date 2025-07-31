@@ -64,6 +64,25 @@ func (m *MockWalletManagerWithHistory) AddPendingTransaction(ctx context.Context
 	return nil
 }
 
+func (m *MockWalletManagerWithHistory) UnlockWallet(password string) error {
+	return nil
+}
+
+func (m *MockWalletManagerWithHistory) LockWallet() {
+}
+
+func (m *MockWalletManagerWithHistory) IsUnlocked() bool {
+	return true
+}
+
+func (m *MockWalletManagerWithHistory) HasWallet() bool {
+	return true
+}
+
+func (m *MockWalletManagerWithHistory) GetCurrentWallet() *wallet.WalletStatus {
+	return &wallet.WalletStatus{}
+}
+
 func TestGetTransactionHistoryToolMeta(t *testing.T) {
 	mockManager := &MockWalletManagerWithHistory{}
 	tool := NewGetTransactionHistoryTool(mockManager)

@@ -63,6 +63,25 @@ func (m *MockWalletManagerForImport) AddPendingTransaction(ctx context.Context, 
 	return nil
 }
 
+func (m *MockWalletManagerForImport) UnlockWallet(password string) error {
+	return nil
+}
+
+func (m *MockWalletManagerForImport) LockWallet() {
+}
+
+func (m *MockWalletManagerForImport) IsUnlocked() bool {
+	return true
+}
+
+func (m *MockWalletManagerForImport) HasWallet() bool {
+	return true
+}
+
+func (m *MockWalletManagerForImport) GetCurrentWallet() *wallet.WalletStatus {
+	return &wallet.WalletStatus{}
+}
+
 // ImportError helps simulate specific error types
 type ImportError struct {
 	Reason string

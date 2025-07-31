@@ -169,6 +169,47 @@ func (s *SolanaChain) CreateWallet(ctx context.Context) (*WalletInfo, error) {
 	}, nil
 }
 
+// ImportFromMnemonic imports a wallet from mnemonic phrase with derivation path
+func (s *SolanaChain) ImportFromMnemonic(ctx context.Context, mnemonic, derivationPath string) (*WalletInfo, error) {
+	// Validate mnemonic
+	if !bip39.IsMnemonicValid(mnemonic) {
+		return nil, errors.New("invalid mnemonic phrase")
+	}
+	
+	// Generate seed from mnemonic
+	seed := bip39.NewSeed(mnemonic, "")
+	
+	// Use default derivation path if not provided
+	if derivationPath == "" {
+		derivationPath = "m/44'/501'/0'/0'" // Solana default
+	}
+	
+	// For Solana, we need a 32-byte seed for the ed25519 keypair
+	// Truncate or pad to 32 bytes if needed
+	keySeed := make([]byte, 32)
+	copy(keySeed, seed)
+	
+	// Generate ed25519 keypair
+	publicKey, privateKey, err := ed25519.GenerateKey(strings.NewReader(string(keySeed)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate ed25519 keypair: %w", err)
+	}
+	
+	// Solana addresses are base58-encoded public keys
+	address := base58.Encode(publicKey)
+	
+	// Convert keys to base58 strings for Solana
+	privateKeyB58 := base58.Encode(privateKey.Seed())
+	publicKeyB58 := base58.Encode(publicKey)
+	
+	return &WalletInfo{
+		Address:    address,
+		PublicKey:  publicKeyB58,
+		PrivateKey: privateKeyB58,
+		Mnemonic:   mnemonic,
+	}, nil
+}
+
 // GetBalance retrieves the balance for a Solana address
 func (s *SolanaChain) GetBalance(ctx context.Context, address string, token string) (string, error) {
 	// Validate address format (base58)

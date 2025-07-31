@@ -3,8 +3,11 @@ package wallet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,11 +15,33 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
 )
 
+// EncryptedWalletData represents encrypted wallet storage format
+type EncryptedWalletData struct {
+	Address          string                 `json:"address"`
+	PublicKey        string                 `json:"public_key"`
+	EncryptedPrivateKey *security.EncryptedData `json:"encrypted_private_key"`
+	EncryptedMnemonic    *security.EncryptedData `json:"encrypted_mnemonic"`
+	Chains           map[string]bool        `json:"chains"`
+	CreatedAt        int64                  `json:"created_at"`
+	LastUsed         int64                  `json:"last_used"`
+}
+
+// DecryptedWalletData represents decrypted wallet data in memory
+type DecryptedWalletData struct {
+	Address    string `json:"address"`
+	PublicKey  string `json:"public_key"`
+	PrivateKey string `json:"private_key"`
+	Mnemonic   string `json:"mnemonic"`
+}
+
 type WalletManager struct {
 	chainFactory *chain.ChainFactory
-	// For demo purposes, we'll store a simple wallet status
-	// In a real implementation, this would be stored securely
+	// Storage configuration
+	walletDir    string
+	// Current wallet state (only loaded when user enters password)
 	currentWallet *WalletStatus
+	currentWalletData *DecryptedWalletData
+	isUnlocked   bool
 	// Audit logger for security events
 	auditLogger *AuditLogger
 	// Mock storage for pending transactions
@@ -25,10 +50,22 @@ type WalletManager struct {
 
 // NewWalletManager constructs a new WalletManager.
 func NewWalletManager() *WalletManager {
+	// Get home directory and create wallet storage directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = "."
+	}
+	walletDir := filepath.Join(homeDir, ".algonius-wallet", "wallets")
+	
+	// Create wallet directory if it doesn't exist
+	os.MkdirAll(walletDir, 0700)
+	
 	return &WalletManager{
 		chainFactory: chain.NewChainFactory(),
+		walletDir:    walletDir,
 		auditLogger:  NewAuditLogger(),
 		pendingTxs:   make([]*PendingTransaction, 0),
+		isUnlocked:   false,
 	}
 }
 
@@ -88,7 +125,7 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	}
 
 	// Import wallet using the chain-specific implementation
-	walletInfo, err := wm.importWalletFromMnemonic(chainImpl, mnemonic, derivationPath)
+	walletInfo, err := wm.importWalletFromMnemonic(ctx, chainImpl, mnemonic, derivationPath)
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to import wallet: %w", err)
 	}
@@ -124,35 +161,52 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 		wm.currentWallet.Chains["ethereum"] = true // ETH is BSC-compatible
 	}
 
-	// TODO: Store encrypted private key and mnemonic in secure storage
-	// For now, we just validate that encryption worked
-	_ = encryptedPrivateKey
-	_ = encryptedMnemonic
+	// Create encrypted wallet data structure
+	encryptedWallet := &EncryptedWalletData{
+		Address:             walletInfo.Address,
+		PublicKey:           walletInfo.PublicKey,
+		EncryptedPrivateKey: encryptedPrivateKey,
+		EncryptedMnemonic:   encryptedMnemonic,
+		Chains:              make(map[string]bool),
+		CreatedAt:           importTime,
+		LastUsed:            importTime,
+	}
+	
+	// Add supported chains based on imported chain
+	switch normalizedChain {
+	case "ethereum":
+		encryptedWallet.Chains["ethereum"] = true
+		encryptedWallet.Chains["bsc"] = true // BSC is Ethereum-compatible
+	case "bsc":
+		encryptedWallet.Chains["bsc"] = true
+		encryptedWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	}
+	
+	// Save encrypted wallet to disk
+	err = wm.saveWalletToDisk(encryptedWallet)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("failed to save wallet: %w", err)
+	}
+	
+	// Load decrypted data into memory for immediate use
+	wm.currentWalletData = &DecryptedWalletData{
+		Address:    walletInfo.Address,
+		PublicKey:  walletInfo.PublicKey,
+		PrivateKey: walletInfo.PrivateKey,
+		Mnemonic:   walletInfo.Mnemonic,
+	}
+	wm.isUnlocked = true
 
 	return walletInfo.Address, walletInfo.PublicKey, importTime, nil
 }
 
 // importWalletFromMnemonic imports a wallet from mnemonic using chain-specific logic
-func (wm *WalletManager) importWalletFromMnemonic(chainImpl chain.IChain, mnemonic, derivationPath string) (*chain.WalletInfo, error) {
-	// For now, we'll use a simplified approach that creates a wallet from mnemonic
-	// This should be enhanced to support proper HD wallet derivation paths
-	
-	// Since the current chain implementations don't have ImportFromMnemonic methods,
-	// we'll use the CreateWallet method and then verify it can reproduce wallets
-	// In a production system, this would be replaced with proper mnemonic import logic
-	
-	walletInfo, err := chainImpl.CreateWallet(context.Background())
+func (wm *WalletManager) importWalletFromMnemonic(ctx context.Context, chainImpl chain.IChain, mnemonic, derivationPath string) (*chain.WalletInfo, error) {
+	// Use the chain-specific ImportFromMnemonic method
+	walletInfo, err := chainImpl.ImportFromMnemonic(ctx, mnemonic, derivationPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create wallet: %w", err)
+		return nil, fmt.Errorf("failed to import wallet from mnemonic: %w", err)
 	}
-
-	// TODO: Replace this with actual mnemonic-based wallet derivation
-	// For now, this is a simplified implementation that demonstrates the structure
-	// In production, you would:
-	// 1. Parse the derivation path (e.g., "m/44'/60'/0'/0/0")
-	// 2. Use the mnemonic to generate a seed
-	// 3. Use HD wallet derivation to get the private key at the specified path
-	// 4. Generate the corresponding public key and address
 
 	return walletInfo, nil
 }
@@ -783,4 +837,119 @@ func (wm *WalletManager) AddPendingTransaction(ctx context.Context, tx *PendingT
 	wm.pendingTxs = append(wm.pendingTxs, tx)
 	
 	return nil
+}
+
+// Wallet Storage Methods
+
+// saveWalletToDisk saves encrypted wallet data to disk
+func (wm *WalletManager) saveWalletToDisk(walletData *EncryptedWalletData) error {
+	walletFile := filepath.Join(wm.walletDir, "wallet.json")
+	
+	// Convert to JSON
+	jsonData, err := json.MarshalIndent(walletData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal wallet data: %w", err)
+	}
+	
+	// Write to file with restricted permissions
+	err = os.WriteFile(walletFile, jsonData, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to write wallet file: %w", err)
+	}
+	
+	return nil
+}
+
+// loadWalletFromDisk loads encrypted wallet data from disk
+func (wm *WalletManager) loadWalletFromDisk() (*EncryptedWalletData, error) {
+	walletFile := filepath.Join(wm.walletDir, "wallet.json")
+	
+	// Check if wallet file exists
+	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
+		return nil, errors.New("no wallet found")
+	}
+	
+	// Read wallet file
+	jsonData, err := os.ReadFile(walletFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read wallet file: %w", err)
+	}
+	
+	// Parse JSON
+	var walletData EncryptedWalletData
+	err = json.Unmarshal(jsonData, &walletData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse wallet file: %w", err)
+	}
+	
+	return &walletData, nil
+}
+
+// UnlockWallet decrypts and loads wallet data into memory with password
+func (wm *WalletManager) UnlockWallet(password string) error {
+	// Load encrypted wallet data from disk
+	encryptedWallet, err := wm.loadWalletFromDisk()
+	if err != nil {
+		return fmt.Errorf("failed to load wallet: %w", err)
+	}
+	
+	// Decrypt private key
+	privateKey, err := security.DecryptWithPassword(encryptedWallet.EncryptedPrivateKey, password)
+	if err != nil {
+		return fmt.Errorf("incorrect password or corrupted wallet: %w", err)
+	}
+	
+	// Decrypt mnemonic
+	mnemonic, err := security.DecryptWithPassword(encryptedWallet.EncryptedMnemonic, password)
+	if err != nil {
+		return fmt.Errorf("incorrect password or corrupted wallet: %w", err)
+	}
+	
+	// Load decrypted data into memory
+	wm.currentWalletData = &DecryptedWalletData{
+		Address:    encryptedWallet.Address,
+		PublicKey:  encryptedWallet.PublicKey,
+		PrivateKey: privateKey,
+		Mnemonic:   mnemonic,
+	}
+	
+	// Load wallet status
+	wm.currentWallet = &WalletStatus{
+		Address:   encryptedWallet.Address,
+		PublicKey: encryptedWallet.PublicKey,
+		Chains:    encryptedWallet.Chains,
+		LastUsed:  encryptedWallet.LastUsed,
+	}
+	
+	wm.isUnlocked = true
+	
+	return nil
+}
+
+// LockWallet clears sensitive data from memory
+func (wm *WalletManager) LockWallet() {
+	if wm.currentWalletData != nil {
+		// Clear sensitive data
+		wm.currentWalletData.PrivateKey = ""
+		wm.currentWalletData.Mnemonic = ""
+		wm.currentWalletData = nil
+	}
+	wm.isUnlocked = false
+}
+
+// IsUnlocked returns whether the wallet is currently unlocked
+func (wm *WalletManager) IsUnlocked() bool {
+	return wm.isUnlocked && wm.currentWalletData != nil
+}
+
+// HasWallet returns whether a wallet file exists on disk
+func (wm *WalletManager) HasWallet() bool {
+	walletFile := filepath.Join(wm.walletDir, "wallet.json")
+	_, err := os.Stat(walletFile)
+	return err == nil
+}
+
+// GetCurrentWallet returns the current wallet status
+func (wm *WalletManager) GetCurrentWallet() *WalletStatus {
+	return wm.currentWallet
 }
