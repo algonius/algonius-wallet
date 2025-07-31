@@ -176,7 +176,7 @@ type LoggingConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Wallet: WalletConfig{
-			DataDir:     "~/.algonius-wallet",
+			DataDir:     getWalletHomeDir(),
 			NetworkMode: "mainnet",
 		},
 		Chains: ChainsConfig{
@@ -377,21 +377,28 @@ func GetConfigPath() string {
 		return configPath
 	}
 	
-	// Default path
-	return "~/.algonius-wallet/config.yaml"
+	// Check if home directory is overridden
+	homeDir := getWalletHomeDir()
+	return filepath.Join(homeDir, "config.yaml")
 }
 
-// LoadConfigWithFallback loads config with test fallback based on RUN_MODE
-func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
-	runMode := os.Getenv("RUN_MODE")
-	
-	if runMode == "test" {
-		if logger != nil {
-			logger.Info("Using test configuration (RUN_MODE=test)")
-		}
-		return TestConfig(), nil
+// getWalletHomeDir returns the wallet home directory, respecting environment override
+func getWalletHomeDir() string {
+	// Check environment variable first
+	if homeDir := os.Getenv("ALGONIUS_WALLET_HOME"); homeDir != "" {
+		return homeDir
 	}
 	
+	// Default path
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(userHome, ".algonius-wallet")
+}
+
+// LoadConfigWithFallback loads config with fallback to defaults
+func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
 	configPath := GetConfigPath()
 	config, err := LoadConfig(configPath)
 	if err != nil {
@@ -406,6 +413,7 @@ func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
 	if logger != nil {
 		logger.Info("Configuration loaded successfully", 
 			zap.String("config_path", configPath),
+			zap.String("wallet_home", config.Wallet.DataDir),
 			zap.String("network_mode", config.Wallet.NetworkMode))
 	}
 	

@@ -31,14 +31,13 @@ type SolanaChain struct {
 }
 
 // NewSolanaChain creates a new Solana chain instance with enhanced blockchain integration
-func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*SolanaChain, error) {
-	// Load configuration based on run mode
-	appConfig, err := config.LoadConfigWithFallback(logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
+func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger, solanaConfig *config.SolanaChainConfig, dexConfig *config.DEXConfig) (*SolanaChain, error) {
+	if solanaConfig == nil {
+		return nil, fmt.Errorf("solana configuration is required")
 	}
-	
-	solanaConfig := &appConfig.Chains.Solana
+	if logger == nil {
+		return nil, fmt.Errorf("logger is required")
+	}
 	
 	// Initialize RPC manager
 	rpcManager, err := NewSolanaRPCManager(solanaConfig.RPCEndpoints, logger)
@@ -65,8 +64,11 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 	solanaRPCChannel := broadcast.NewSolanaRPCChannel(solanaConfig, logger)
 	broadcastManager.RegisterChannel(solanaRPCChannel)
 	
-	okexChannel := broadcast.NewOKExChannel(&appConfig.DEX.OKEx, logger)
-	broadcastManager.RegisterChannel(okexChannel)
+	// Only register OKEx channel if dexConfig is provided
+	if dexConfig != nil {
+		okexChannel := broadcast.NewOKExChannel(&dexConfig.OKEx, logger)
+		broadcastManager.RegisterChannel(okexChannel)
+	}
 	
 	// Add Jito channels (if enabled)
 	if solanaConfig.Jito.Enabled {
@@ -97,10 +99,10 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 	}
 	
 	logger.Info("Initialized Solana chain with enhanced blockchain integration",
-		zap.String("run_mode", os.Getenv("RUN_MODE")),
 		zap.Int("rpc_endpoints", len(solanaConfig.RPCEndpoints)),
 		zap.Int("max_retries", solanaConfig.Retry.MaxRetries),
-		zap.String("broadcast_channel", solanaConfig.Broadcast.Channel))
+		zap.String("broadcast_channel", solanaConfig.Broadcast.Channel),
+		zap.Bool("jito_enabled", solanaConfig.Jito.Enabled))
 	
 	return chain, nil
 }
@@ -108,11 +110,6 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 // NewSolanaChainLegacy creates a new Solana chain instance without DEX aggregator (for backward compatibility)
 func NewSolanaChainLegacy() *SolanaChain {
 	logger := zap.NewNop() // Use no-op logger for legacy
-	
-	// Try to create enhanced chain, fallback to basic if it fails
-	if chain, err := NewSolanaChain(nil, logger); err == nil {
-		return chain
-	}
 	
 	return &SolanaChain{
 		name:    "SOLANA",

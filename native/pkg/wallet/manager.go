@@ -11,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algonius/algonius-wallet/native/pkg/config"
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/algonius/algonius-wallet/native/pkg/security"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
+	"go.uber.org/zap"
 )
 
 // EncryptedWalletData represents encrypted wallet storage format
@@ -50,12 +53,9 @@ type WalletManager struct {
 
 // NewWalletManager constructs a new WalletManager.
 func NewWalletManager() *WalletManager {
-	// Get home directory and create wallet storage directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = "."
-	}
-	walletDir := filepath.Join(homeDir, ".algonius-wallet", "wallets")
+	// Get wallet directory from environment or default
+	walletHomeDir := getWalletHomeDir()
+	walletDir := filepath.Join(walletHomeDir, "wallets")
 	
 	// Create wallet directory if it doesn't exist
 	os.MkdirAll(walletDir, 0700)
@@ -67,6 +67,46 @@ func NewWalletManager() *WalletManager {
 		pendingTxs:   make([]*PendingTransaction, 0),
 		isUnlocked:   false,
 	}
+}
+
+// NewWalletManagerWithConfig constructs a new WalletManager with configuration.
+func NewWalletManagerWithConfig(config *config.Config, dexAggregator dex.IDEXAggregator, logger *zap.Logger) *WalletManager {
+	// Get wallet directory from config or environment
+	walletDir := filepath.Join(config.Wallet.DataDir, "wallets")
+	
+	// Create wallet directory if it doesn't exist
+	os.MkdirAll(walletDir, 0700)
+	
+	// Create chain factory with configuration
+	var chainFactory *chain.ChainFactory
+	if dexAggregator != nil && logger != nil {
+		chainFactory = chain.NewChainFactoryWithDEX(dexAggregator, logger, config)
+	} else {
+		chainFactory = chain.NewChainFactory()
+	}
+	
+	return &WalletManager{
+		chainFactory: chainFactory,
+		walletDir:    walletDir,
+		auditLogger:  NewAuditLogger(),
+		pendingTxs:   make([]*PendingTransaction, 0),
+		isUnlocked:   false,
+	}
+}
+
+// getWalletHomeDir returns the wallet home directory, respecting environment override
+func getWalletHomeDir() string {
+	// Check environment variable first
+	if homeDir := os.Getenv("ALGONIUS_WALLET_HOME"); homeDir != "" {
+		return homeDir
+	}
+	
+	// Default path
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(userHome, ".algonius-wallet")
 }
 
 // CreateWallet creates a new wallet for the specified chain.
