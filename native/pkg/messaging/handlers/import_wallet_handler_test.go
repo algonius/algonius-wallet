@@ -16,7 +16,7 @@ type MockWalletManagerForImport struct {
 	FailureReason string
 }
 
-func (m *MockWalletManagerForImport) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, mnemonic string, err error) {
+func (m *MockWalletManagerForImport) CreateWallet(ctx context.Context, chain string, password string) (address string, publicKey string, mnemonic string, err error) {
 	return "0x123", "0x456", "", nil
 }
 

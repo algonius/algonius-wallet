@@ -14,7 +14,7 @@ import (
 // MockWalletManager is a mock implementation of wallet.IWalletManager for testing
 type MockWalletManager struct{}
 
-func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, mnemonic string, err error) {
+func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string, password string) (address string, publicKey string, mnemonic string, err error) {
 	return "0x123", "0x456", "", nil
 }
 

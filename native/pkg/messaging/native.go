@@ -269,9 +269,16 @@ func (nm *NativeMessaging) registerRpcRequestHandler() {
 				},
 			})
 		}
+		nm.logger.Info("Calling RPC handler", 
+			zap.String("method", method),
+			zap.String("request_id", request.ID))
+		
 		response, err := handler(request)
 		if err != nil {
-			nm.logger.Error("Error in RPC handler", zap.Error(err))
+			nm.logger.Error("Error in RPC handler", 
+				zap.Error(err),
+				zap.String("method", method),
+				zap.String("request_id", request.ID))
 			return nm.SendMessage(Message{
 				Type: "rpc_response",
 				ID:   request.ID,
@@ -281,7 +288,22 @@ func (nm *NativeMessaging) registerRpcRequestHandler() {
 				},
 			})
 		}
+		
 		response.ID = request.ID
+		nm.logger.Info("RPC handler completed, sending response", 
+			zap.String("method", method),
+			zap.String("request_id", response.ID),
+			zap.Bool("has_error", response.Error != nil),
+			zap.Bool("has_result", response.Result != nil))
+		
+		if response.Error != nil {
+			nm.logger.Info("RPC response contains error", 
+				zap.String("method", method),
+				zap.String("request_id", response.ID),
+				zap.Int("error_code", response.Error.Code),
+				zap.String("error_message", response.Error.Message))
+		}
+		
 		return nm.SendMessage(Message{
 			Type:   "rpc_response",
 			ID:     response.ID,

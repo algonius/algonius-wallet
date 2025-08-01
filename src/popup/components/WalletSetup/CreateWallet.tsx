@@ -20,7 +20,7 @@ export const CreateWallet: React.FC<CreateWalletProps> = ({
 }) => {
   const {
     state,
-    generateNewMnemonic,
+    proceedToPassword,
     confirmBackup,
     createNewWallet,
     resetState,
@@ -34,9 +34,9 @@ export const CreateWallet: React.FC<CreateWalletProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isPasswordValid, setIsPasswordValid] = useState(false);
 
-  const handleGenerateMnemonic = useCallback(() => {
-    generateNewMnemonic();
-  }, [generateNewMnemonic]);
+  const handleProceedToPassword = useCallback(() => {
+    proceedToPassword();
+  }, [proceedToPassword]);
 
   const handleProceedToBackup = useCallback(() => {
     proceedToBackup();
@@ -112,7 +112,7 @@ export const CreateWallet: React.FC<CreateWalletProps> = ({
               <Button
                 variant="primary"
                 fullWidth
-                onClick={handleGenerateMnemonic}
+                onClick={handleProceedToPassword}
               >
                 Generate New Wallet
               </Button>

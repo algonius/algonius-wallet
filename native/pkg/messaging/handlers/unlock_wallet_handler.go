@@ -7,6 +7,7 @@ import (
 
 	"github.com/algonius/algonius-wallet/native/pkg/messaging"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
+	"go.uber.org/zap"
 )
 
 // UnlockWalletParams represents the parameters for unlock_wallet RPC method
@@ -140,12 +141,15 @@ func CreateLockWalletHandler(walletManager wallet.IWalletManager) messaging.RpcH
 }
 
 // CreateWalletStatusHandler creates an RPC handler for wallet_status method
-func CreateWalletStatusHandler(walletManager wallet.IWalletManager) messaging.RpcHandler {
+func CreateWalletStatusHandler(walletManager wallet.IWalletManager, logger *zap.Logger) messaging.RpcHandler {
 	return func(request messaging.RpcRequest) (messaging.RpcResponse, error) {
 		// Check wallet status
+		hasWallet := walletManager.HasWallet()
+		isUnlocked := walletManager.IsUnlocked()
+		
 		result := WalletStatusResult{
-			HasWallet:  walletManager.HasWallet(),
-			IsUnlocked: walletManager.IsUnlocked(),
+			HasWallet:  hasWallet,
+			IsUnlocked: isUnlocked,
 		}
 		
 		// Add address if wallet is unlocked
@@ -165,6 +169,7 @@ func CreateWalletStatusHandler(walletManager wallet.IWalletManager) messaging.Rp
 				},
 			}, nil
 		}
+
 
 		return messaging.RpcResponse{
 			Result: resultJSON,

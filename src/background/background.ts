@@ -139,7 +139,7 @@ async function handleNativeRpc(
       console.log('❌ RPC Error:', response.error);
       sendResponse({ error: response.error });
     } else {
-      console.log('✅ RPC Success');
+      console.log('✅ RPC Success:', method, 'Response:', response.result);
       sendResponse({ result: response.result });
     }
   } catch (error) {

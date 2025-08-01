@@ -146,10 +146,10 @@ func main() {
 
 	// Register wallet RPC methods (only available via Native Messaging)
 	nm.RegisterRpcMethod("import_wallet", handlers.CreateImportWalletHandler(walletManager))
-	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager))
+	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager, zapLogger))
 	nm.RegisterRpcMethod("unlock_wallet", handlers.CreateUnlockWalletHandler(walletManager))
 	nm.RegisterRpcMethod("lock_wallet", handlers.CreateLockWalletHandler(walletManager))
-	nm.RegisterRpcMethod("wallet_status", handlers.CreateWalletStatusHandler(walletManager))
+	nm.RegisterRpcMethod("wallet_status", handlers.CreateWalletStatusHandler(walletManager, zapLogger))
 	nm.RegisterRpcMethod("web3_request", handlers.CreateWeb3RequestHandler(walletManager, eventBroadcaster))
 
 	// Register init, status, shutdown RPC methods

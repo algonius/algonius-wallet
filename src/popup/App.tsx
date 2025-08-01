@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { CreateWallet } from "./components/WalletSetup/CreateWallet";
 import { ImportWallet } from "./components/WalletSetup/ImportWallet";
+import { UnlockWallet } from "./components/WalletSetup/UnlockWallet";
 import { Button } from "./components/common/Button";
 import { useNativeMessaging } from "./hooks/useNativeMessaging";
 
@@ -17,7 +18,7 @@ interface McpHostStatus {
 }
 
 // App view states
-type AppView = 'status' | 'setup' | 'create' | 'import' | 'wallet';
+type AppView = 'status' | 'setup' | 'create' | 'import' | 'unlock' | 'wallet';
 
 const getMcpStatus = (): Promise<{ status: McpHostStatus }> => {
   return new Promise((resolve) => {
@@ -198,8 +199,14 @@ const App: React.FC = () => {
 
   // View management functions
   const handleSetupWallet = useCallback(() => {
-    setCurrentView('setup');
-  }, []);
+    // If wallet exists but is locked, go to unlock view
+    // Otherwise go to setup view
+    if (walletStatus.hasWallet && !walletStatus.isUnlocked) {
+      setCurrentView('unlock');
+    } else {
+      setCurrentView('setup');
+    }
+  }, [walletStatus]);
 
   const handleCreateWallet = useCallback(() => {
     setCurrentView('create');
@@ -224,6 +231,18 @@ const App: React.FC = () => {
   const handleBackToStatus = useCallback(() => {
     setCurrentView('status');
   }, []);
+
+  const handleUnlockComplete = useCallback(async () => {
+    // 钱包解锁完成后，刷新钱包状态并回到status视图
+    try {
+      const walletRes = await getWalletStatus();
+      setWalletStatus(walletRes);
+      setCurrentView('status'); // 回到status视图，让用户通过"Go to Wallet"按钮进入钱包功能
+    } catch (err) {
+      console.error('Failed to refresh wallet status:', err);
+      setCurrentView('status'); // 仍然回到status视图
+    }
+  }, [getWalletStatus]);
 
   // Render different views based on current view state
   const renderView = () => {
@@ -295,6 +314,14 @@ const App: React.FC = () => {
         return (
           <ImportWallet
             onComplete={handleWalletComplete}
+            onCancel={handleBackToStatus}
+          />
+        );
+
+      case 'unlock':
+        return (
+          <UnlockWallet
+            onComplete={handleUnlockComplete}
             onCancel={handleBackToStatus}
           />
         );

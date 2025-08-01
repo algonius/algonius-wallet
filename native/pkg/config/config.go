@@ -338,6 +338,11 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 	
+	// Expand tilde paths in configuration values
+	if err := expandConfigPaths(&config); err != nil {
+		return nil, fmt.Errorf("failed to expand config paths: %w", err)
+	}
+	
 	return &config, nil
 }
 
@@ -418,4 +423,27 @@ func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
 	}
 	
 	return config, nil
+}
+
+// expandConfigPaths expands tilde (~) paths in configuration values
+func expandConfigPaths(config *Config) error {
+	// Expand DataDir path
+	if config.Wallet.DataDir != "" && config.Wallet.DataDir[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory for DataDir: %w", err)
+		}
+		config.Wallet.DataDir = filepath.Join(homeDir, config.Wallet.DataDir[1:])
+	}
+	
+	// Expand OutputFile path in logging config
+	if config.Logging.OutputFile != "" && config.Logging.OutputFile[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory for OutputFile: %w", err)
+		}
+		config.Logging.OutputFile = filepath.Join(homeDir, config.Logging.OutputFile[1:])
+	}
+	
+	return nil
 }
