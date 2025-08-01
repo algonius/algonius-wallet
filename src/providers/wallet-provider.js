@@ -1,6 +1,7 @@
 /**
  * Wallet Provider - Injected into DeFi platforms
  * Provides Web3-compatible interface for Algonius Wallet
+ * Simulates Phantom wallet for compatibility with sites like gmgn.ai
  */
 
 class AlgoniusWalletProvider {
@@ -8,8 +9,16 @@ class AlgoniusWalletProvider {
     this.accounts = [];
     this.chainId = null;
     this.isConnected = false;
-    this.providerName = 'AlgoniusWallet';
+    this.providerName = 'phantom';
     this.version = '1.0.0';
+    this.isPhantom = true; // Mark as Phantom-compatible
+    this.autoRefreshOnNetworkChange = false;
+    this._events = {};
+    
+    // Additional Phantom properties
+    this._isConnected = false;
+    this._publicKey = null;
+    this._network = null;
 
     // Setup message listeners
     this.setupListeners();
@@ -70,6 +79,14 @@ class AlgoniusWalletProvider {
     });
 
     if (response.success) {
+      // Update local state based on method
+      if (method === 'eth_requestAccounts' || method === 'eth_accounts') {
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          this._isConnected = true;
+          this._publicKey = response.data[0];
+        }
+      }
+      
       return response.data;
     } else {
       throw new Error(response.error || 'Request failed');
@@ -82,10 +99,19 @@ class AlgoniusWalletProvider {
   }
 
   async enable() {
-    const accounts = await this.request({ method: 'eth_requestAccounts' });
-    this.accounts = accounts;
-    this.isConnected = true;
-    return accounts;
+    try {
+      const accounts = await this.request({ method: 'eth_requestAccounts' });
+      this.accounts = accounts;
+      this.isConnected = true;
+      this._isConnected = true;
+      if (accounts && accounts.length > 0) {
+        this._publicKey = accounts[0];
+      }
+      this.emit('connect', { chainId: this.chainId });
+      return accounts;
+    } catch (error) {
+      throw new Error(`Failed to enable wallet: ${error.message}`);
+    }
   }
 
   async send(method, params) {
@@ -106,6 +132,11 @@ class AlgoniusWalletProvider {
     if (!this._events) this._events = {};
     if (!this._events[event]) this._events[event] = [];
     this._events[event].push(handler);
+    
+    // For Phantom compatibility, also emit connect event when accounts are available
+    if (event === 'accountsChanged' && this.accounts.length > 0) {
+      setTimeout(() => handler(this.accounts), 0);
+    }
   }
 
   off(event, handler) {
@@ -116,6 +147,92 @@ class AlgoniusWalletProvider {
   emit(event, payload) {
     if (!this._events || !this._events[event]) return;
     this._events[event].forEach((handler) => handler(payload));
+    
+    // For Phantom compatibility, also emit connect event
+    if (event === 'connect') {
+      this.isConnected = true;
+      this._isConnected = true;
+    } else if (event === 'disconnect') {
+      this.isConnected = false;
+      this._isConnected = false;
+      this.accounts = [];
+      this._publicKey = null;
+    } else if (event === 'accountsChanged') {
+      this.accounts = payload || [];
+      if (this.accounts && this.accounts.length > 0) {
+        this._publicKey = this.accounts[0];
+        this._isConnected = true;
+      } else {
+        this._publicKey = null;
+        this._isConnected = false;
+      }
+    }
+  }
+  
+  // Phantom-specific methods and properties
+  async connect() {
+    try {
+      const accounts = await this.request({ method: 'eth_requestAccounts' });
+      this.accounts = accounts;
+      this.isConnected = true;
+      this._isConnected = true;
+      if (accounts && accounts.length > 0) {
+        this._publicKey = accounts[0];
+      }
+      this.emit('connect', { chainId: this.chainId });
+      return { 
+        publicKey: this._publicKey, 
+        isConnected: this._isConnected 
+      };
+    } catch (error) {
+      throw new Error(`Failed to connect: ${error.message}`);
+    }
+  }
+  
+  async disconnect() {
+    // Note: This is a simplified implementation
+    // A full implementation would need to communicate with the extension to actually disconnect
+    this.accounts = [];
+    this.isConnected = false;
+    this._isConnected = false;
+    this._publicKey = null;
+    this.emit('disconnect');
+  }
+  
+  // Additional Phantom methods
+  async isConnectedAndUnlocked() {
+    try {
+      // Try to get accounts without user interaction
+      await this.request({ method: 'eth_accounts' });
+      return this.accounts.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  // Getter for Phantom compatibility
+  get publicKey() {
+    return this._publicKey;
+  }
+  
+  get network() {
+    return this._network;
+  }
+  
+  // Signer methods that Phantom provides
+  async signMessage(message, encoding = 'utf8') {
+    // Implementation would go here
+    throw new Error('signMessage not implemented');
+  }
+  
+  async signTransaction(transaction) {
+    // Implementation would go here
+    throw new Error('signTransaction not implemented');
+  }
+  
+  async signAllTransactions(transactions) {
+    // Implementation would go here
+    throw new Error('signAllTransactions not implemented');
   }
 }
 
@@ -126,5 +243,12 @@ if (typeof window.algoniusWallet === 'undefined') {
   // Also expose as EIP-1193 provider
   if (typeof window.ethereum === 'undefined') {
     window.ethereum = window.algoniusWallet;
+  }
+  
+  // For Phantom compatibility, also expose as window.phantom
+  if (typeof window.phantom === 'undefined') {
+    window.phantom = {
+      ethereum: window.algoniusWallet
+    };
   }
 }
