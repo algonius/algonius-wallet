@@ -13,13 +13,13 @@ export default defineConfig({
       input: {
         background: resolve(__dirname, 'src/background/background.ts'),
         content: resolve(__dirname, 'src/content/content.ts'),
-        injected: resolve(__dirname, 'src/content/injected.ts'),
+        "wallet-provider": resolve(__dirname, 'src/providers/wallet-provider.js'),
         popup: resolve(__dirname, 'src/popup/index.tsx'),
         "popup/popup": resolve(__dirname, 'src/popup/index.css'),
       },
       output: {
         entryFileNames: (chunk) => {
-          if (chunk.name === 'injected') return 'content/injected.js';
+          if (chunk.name === 'wallet-provider') return 'providers/wallet-provider.js';
           if (chunk.name === 'content') return 'content/content.js';
           if (chunk.name === 'background') return 'background/background.js';
           if (chunk.name === 'popup') return 'popup/popup.js';
