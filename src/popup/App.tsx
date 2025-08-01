@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { CreateWallet } from "./components/WalletSetup/CreateWallet";
 import { ImportWallet } from "./components/WalletSetup/ImportWallet";
 import { UnlockWallet } from "./components/WalletSetup/UnlockWallet";
@@ -18,7 +18,7 @@ interface McpHostStatus {
 }
 
 // App view states
-type AppView = 'status' | 'setup' | 'create' | 'import' | 'unlock' | 'wallet';
+type AppView = 'main' | 'setup' | 'create' | 'import' | 'unlock' | 'wallet-ready';
 
 const getMcpStatus = (): Promise<{ status: McpHostStatus }> => {
   return new Promise((resolve) => {
@@ -63,7 +63,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<AppView>('status');
+  const [currentView, setCurrentView] = useState<AppView>('main');
   const [walletStatus, setWalletStatus] = useState<{
     hasWallet: boolean;
     isUnlocked: boolean;
@@ -86,9 +86,19 @@ const App: React.FC = () => {
           const walletRes = await getWalletStatus();
           setWalletStatus(walletRes);
           
-          // 如果钱包已存在且当前视图是status，切换到wallet视图
-          if (walletRes.hasWallet && walletRes.isUnlocked && currentView === 'status') {
-            setCurrentView('wallet');
+          // 如果钱包已存在且当前视图是status，并且用户还没有手动切换到wallet视图，切换到wallet视图
+          // 但只在用户第一次打开popup时自动切换，避免在用户手动导航时干扰
+          // 同时确保钱包确实是解锁状态
+          if (walletRes.hasWallet && walletRes.isUnlocked && 
+              !sessionStorage.getItem('autoWalletRedirectDone')) {
+            setCurrentView('main');
+            // 标记已执行过自动重定向
+            sessionStorage.setItem('autoWalletRedirectDone', 'true');
+          }
+          // 如果钱包已解锁且当前在wallet视图，确保界面正确显示
+          else if (walletRes.hasWallet && walletRes.isUnlocked && currentView === 'wallet-ready') {
+            // 强制更新状态以确保界面正确显示
+            setWalletStatus(prev => ({...prev, ...walletRes}));
           }
         } catch (walletErr) {
           console.log('Wallet status check failed:', walletErr);
@@ -104,6 +114,8 @@ const App: React.FC = () => {
 
   // 首次加载和定时刷新
   useEffect(() => {
+    // 清除自动重定向标记，确保每次打开popup都能正确显示
+    sessionStorage.removeItem('autoWalletRedirectDone');
     fetchStatus();
     const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
@@ -221,28 +233,34 @@ const App: React.FC = () => {
     try {
       const walletRes = await getWalletStatus();
       setWalletStatus(walletRes);
-      setCurrentView('wallet');
+      setCurrentView('wallet-ready');
     } catch (err) {
       console.error('Failed to refresh wallet status:', err);
-      setCurrentView('wallet'); // 仍然切换到钱包视图
+      setCurrentView('wallet-ready'); // 仍然切换到钱包视图
     }
   }, [getWalletStatus]);
 
   const handleBackToStatus = useCallback(() => {
-    setCurrentView('status');
+    setCurrentView('main');
   }, []);
 
   const handleUnlockComplete = useCallback(async () => {
-    // 钱包解锁完成后，刷新钱包状态并回到status视图
+    // 钱包解锁完成后，刷新钱包状态并进入wallet视图
     try {
       const walletRes = await getWalletStatus();
       setWalletStatus(walletRes);
-      setCurrentView('status'); // 回到status视图，让用户通过"Go to Wallet"按钮进入钱包功能
+      // 标记已执行过自动重定向，避免定时刷新时再次自动切换
+      sessionStorage.setItem('autoWalletRedirectDone', 'true');
+      // 直接进入wallet视图而不是status视图
+      setCurrentView('wallet-ready');
+      // 同时更新MCP状态以确保界面同步
+      fetchStatus();
     } catch (err) {
       console.error('Failed to refresh wallet status:', err);
-      setCurrentView('status'); // 仍然回到status视图
+      // 出错时也进入wallet视图
+      setCurrentView('wallet-ready');
     }
-  }, [getWalletStatus]);
+  }, [getWalletStatus, fetchStatus]);
 
   // Render different views based on current view state
   const renderView = () => {
@@ -326,7 +344,7 @@ const App: React.FC = () => {
           />
         );
 
-      case 'wallet':
+      case 'wallet-ready':
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">
@@ -461,7 +479,11 @@ const App: React.FC = () => {
                           <Button
                             variant="primary"
                             size="small"
-                            onClick={() => setCurrentView('wallet')}
+                            onClick={() => {
+                              // 标记已执行过自动重定向，避免定时刷新时再次自动切换
+                              sessionStorage.setItem('autoWalletRedirectDone', 'true');
+                              setCurrentView('wallet-ready');
+                            }}
                           >
                             Go to Wallet
                           </Button>
