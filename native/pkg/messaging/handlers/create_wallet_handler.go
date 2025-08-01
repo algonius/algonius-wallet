@@ -68,7 +68,7 @@ func CreateCreateWalletHandler(walletManager wallet.IWalletManager) messaging.Rp
 		}
 
 		// Create wallet using wallet manager
-		address, publicKey, err := walletManager.CreateWallet(
+		address, publicKey, mnemonic, err := walletManager.CreateWallet(
 			context.Background(),
 			params.Chain,
 		)
@@ -93,13 +93,11 @@ func CreateCreateWalletHandler(walletManager wallet.IWalletManager) messaging.Rp
 			}, nil
 		}
 
-		// For now, we'll return an empty mnemonic since the current CreateWallet method
-		// doesn't generate or return a mnemonic. This should be updated when the
-		// wallet manager is enhanced to support mnemonic generation.
+		// Return the generated mnemonic along with wallet details
 		result := CreateWalletResult{
 			Address:   address,
 			PublicKey: publicKey,
-			Mnemonic:  "", // TODO: Add mnemonic generation to wallet manager
+			Mnemonic:  mnemonic,
 			CreatedAt: time.Now().Unix(),
 		}
 

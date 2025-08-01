@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { CreateWallet } from "./components/WalletSetup/CreateWallet";
 import { ImportWallet } from "./components/WalletSetup/ImportWallet";
 import { Button } from "./components/common/Button";
+import { useNativeMessaging } from "./hooks/useNativeMessaging";
 
 // MCP Host Status interface
 interface McpHostStatus {
@@ -62,6 +63,13 @@ const App: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('status');
+  const [walletStatus, setWalletStatus] = useState<{
+    hasWallet: boolean;
+    isUnlocked: boolean;
+    address?: string;
+  }>({ hasWallet: false, isUnlocked: false });
+
+  const { getWalletStatus } = useNativeMessaging();
 
   // 获取MCP Host状态
   const fetchStatus = useCallback(async () => {
@@ -70,12 +78,28 @@ const App: React.FC = () => {
     try {
       const res = await getMcpStatus();
       setStatus(res.status);
+      
+      // 如果MCP Host已连接，检查钱包状态
+      if (res.status.isConnected) {
+        try {
+          const walletRes = await getWalletStatus();
+          setWalletStatus(walletRes);
+          
+          // 如果钱包已存在且当前视图是status，切换到wallet视图
+          if (walletRes.hasWallet && walletRes.isUnlocked && currentView === 'status') {
+            setCurrentView('wallet');
+          }
+        } catch (walletErr) {
+          console.log('Wallet status check failed:', walletErr);
+          // 钱包状态检查失败不应该影响MCP状态显示
+        }
+      }
     } catch (err) {
       setError('Failed to get MCP Host status');
       console.error('Failed to get MCP status:', err);
     }
     setLoading(false);
-  }, []);
+  }, [getWalletStatus, currentView]);
 
   // 首次加载和定时刷新
   useEffect(() => {
@@ -185,9 +209,17 @@ const App: React.FC = () => {
     setCurrentView('import');
   }, []);
 
-  const handleWalletComplete = useCallback(() => {
-    setCurrentView('wallet');
-  }, []);
+  const handleWalletComplete = useCallback(async () => {
+    // 钱包设置完成后，刷新钱包状态
+    try {
+      const walletRes = await getWalletStatus();
+      setWalletStatus(walletRes);
+      setCurrentView('wallet');
+    } catch (err) {
+      console.error('Failed to refresh wallet status:', err);
+      setCurrentView('wallet'); // 仍然切换到钱包视图
+    }
+  }, [getWalletStatus]);
 
   const handleBackToStatus = useCallback(() => {
     setCurrentView('status');
@@ -382,22 +414,62 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* Wallet Setup Section */}
+            {/* Wallet Status Section */}
             <section className="mb-4">
               <h2 className="text-lg font-semibold mb-2">Wallet</h2>
               <div className="bg-gray-100 rounded p-3 space-y-2">
-                <div className="text-center">
-                  <div className="text-gray-400 mb-3">
-                    No wallet configured
+                {status.isConnected ? (
+                  walletStatus.hasWallet ? (
+                    <div className="text-center">
+                      <div className="text-green-600 mb-2">
+                        ✓ Wallet configured
+                      </div>
+                      {walletStatus.address && (
+                        <div className="text-xs text-gray-600 mb-3 font-mono">
+                          {walletStatus.address.slice(0, 6)}...{walletStatus.address.slice(-4)}
+                        </div>
+                      )}
+                      <div className="flex justify-center space-x-2">
+                        {walletStatus.isUnlocked ? (
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() => setCurrentView('wallet')}
+                          >
+                            Go to Wallet
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            onClick={handleSetupWallet}
+                          >
+                            Unlock Wallet
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-gray-400 mb-3">
+                        No wallet configured
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={handleSetupWallet}
+                      >
+                        Setup Wallet
+                      </Button>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center">
+                    <div className="text-gray-400 mb-3">
+                      MCP Host not connected
+                    </div>
                   </div>
-                  <Button
-                    variant="primary"
-                    size="small"
-                    onClick={handleSetupWallet}
-                  >
-                    Setup Wallet
-                  </Button>
-                </div>
+                )}
               </div>
             </section>
 

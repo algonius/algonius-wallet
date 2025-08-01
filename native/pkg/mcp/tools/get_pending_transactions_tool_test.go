@@ -14,8 +14,8 @@ import (
 // MockWalletManager is a mock implementation of wallet.IWalletManager for testing
 type MockWalletManager struct{}
 
-func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, err error) {
-	return "0x123", "0x456", nil
+func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, mnemonic string, err error) {
+	return "0x123", "0x456", "", nil
 }
 
 func (m *MockWalletManager) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error) {
@@ -94,12 +94,12 @@ func (m *MockWalletManagerWithTransactions) AddPendingTransaction(ctx context.Co
 func TestGetPendingTransactionsToolMeta(t *testing.T) {
 	mockManager := &MockWalletManager{}
 	tool := NewGetPendingTransactionsTool(mockManager)
-	
+
 	meta := tool.GetMeta()
-	
+
 	assert.Equal(t, "get_pending_transactions", meta.Name)
 	assert.Equal(t, "Query pending transactions that require confirmation", meta.Description)
-	
+
 	// Check that all expected parameters are present
 	assert.Contains(t, meta.InputSchema.Properties, "chain")
 	assert.Contains(t, meta.InputSchema.Properties, "address")
@@ -111,14 +111,14 @@ func TestGetPendingTransactionsToolMeta(t *testing.T) {
 func TestGetPendingTransactionsToolCreation(t *testing.T) {
 	mockManager := &MockWalletManager{}
 	tool := NewGetPendingTransactionsTool(mockManager)
-	
+
 	require.NotNil(t, tool)
 	require.NotNil(t, tool.manager)
-	
+
 	// Test that the tool has the expected methods
 	meta := tool.GetMeta()
 	require.NotNil(t, meta)
-	
+
 	handler := tool.GetHandler()
 	require.NotNil(t, handler)
 }
@@ -145,14 +145,14 @@ func TestGetPendingTransactionsToolHandler_Success(t *testing.T) {
 			LastChecked:               now,
 		},
 	}
-	
+
 	mockManager := &MockWalletManagerWithTransactions{
 		mockTransactions: mockTransactions,
 	}
-	
+
 	tool := NewGetPendingTransactionsTool(mockManager)
 	handler := tool.GetHandler()
-	
+
 	// Create proper request structure
 	params := mcp.CallToolParams{
 		Name: "get_pending_transactions",
@@ -162,19 +162,19 @@ func TestGetPendingTransactionsToolHandler_Success(t *testing.T) {
 			"offset": 0,
 		},
 	}
-	
+
 	req := mcp.CallToolRequest{}
 	req.Params = params
-	
+
 	result, err := handler(context.Background(), req)
-	
+
 	// Verify the result
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.False(t, result.IsError)
 	require.NotNil(t, result.Content)
 	require.Len(t, result.Content, 1)
-	
+
 	// Check that the markdown output contains expected content
 	textContent, ok := mcp.AsTextContent(result.Content[0])
 	require.True(t, ok, "result should contain text content")
@@ -188,10 +188,10 @@ func TestGetPendingTransactionsToolHandler_NoTransactions(t *testing.T) {
 	mockManager := &MockWalletManagerWithTransactions{
 		mockTransactions: []*wallet.PendingTransaction{},
 	}
-	
+
 	tool := NewGetPendingTransactionsTool(mockManager)
 	handler := tool.GetHandler()
-	
+
 	// Create proper request structure
 	params := mcp.CallToolParams{
 		Name: "get_pending_transactions",
@@ -199,19 +199,19 @@ func TestGetPendingTransactionsToolHandler_NoTransactions(t *testing.T) {
 			"chain": "ethereum",
 		},
 	}
-	
+
 	req := mcp.CallToolRequest{}
 	req.Params = params
-	
+
 	result, err := handler(context.Background(), req)
-	
+
 	// Verify the result
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.False(t, result.IsError)
 	require.NotNil(t, result.Content)
 	require.Len(t, result.Content, 1)
-	
+
 	// Check that the markdown output indicates no transactions
 	textContent, ok := mcp.AsTextContent(result.Content[0])
 	require.True(t, ok, "result should contain text content")

@@ -110,17 +110,17 @@ func getWalletHomeDir() string {
 }
 
 // CreateWallet creates a new wallet for the specified chain.
-func (wm *WalletManager) CreateWallet(ctx context.Context, chainName string) (address string, publicKey string, err error) {
+func (wm *WalletManager) CreateWallet(ctx context.Context, chainName string) (address string, publicKey string, mnemonic string, err error) {
 	// Get the chain implementation
 	chainImpl, err := wm.chainFactory.GetChain(chainName)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Create the wallet using the chain implementation
 	walletInfo, err := chainImpl.CreateWallet(ctx)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Store the wallet status (for demo purposes)
@@ -131,8 +131,8 @@ func (wm *WalletManager) CreateWallet(ctx context.Context, chainName string) (ad
 	wm.currentWallet.Chains["solana"] = true
 
 	// TODO: Store the wallet securely (encrypted private key and mnemonic)
-	// For now, we only return the address and public key
-	return walletInfo.Address, walletInfo.PublicKey, nil
+	// For now, we return the address, public key, and mnemonic
+	return walletInfo.Address, walletInfo.PublicKey, walletInfo.Mnemonic, nil
 }
 
 // ImportWallet imports a wallet using a mnemonic phrase

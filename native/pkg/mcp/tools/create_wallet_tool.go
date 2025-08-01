@@ -42,11 +42,13 @@ func (t *CreateWalletTool) GetHandler() server.ToolHandlerFunc {
 			toolErr := errors.MissingRequiredFieldError("chain")
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
-		address, publicKey, err := t.manager.CreateWallet(ctx, chain)
+		address, publicKey, mnemonic, err := t.manager.CreateWallet(ctx, chain)
 		if err != nil {
 			toolErr := errors.InternalError("create wallet", err)
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
+		// Note: mnemonic is not included in tool output for security reasons
+		_ = mnemonic // Acknowledge that we received the mnemonic but don't expose it to AI
 		markdown := "### Wallet Created\n\n" +
 			"- **Address**: `" + address + "`\n" +
 			"- **Public Key**: `" + publicKey + "`\n"

@@ -1,16 +1,15 @@
 // Hook for wallet creation operations
 
-import { useState, useCallback } from 'react';
-import { useNativeMessaging } from './useNativeMessaging';
+import { useCallback, useState } from 'react';
 import { WalletCreationParams, WalletCreationResult } from '../types/wallet';
-import { validatePassword, isPasswordValid } from '../utils/validation';
-import { generateMnemonic } from '../utils/mnemonicUtils';
+import { isPasswordValid, validatePassword } from '../utils/validation';
+import { useNativeMessaging } from './useNativeMessaging';
 
 export interface WalletCreationState {
   isLoading: boolean;
   error: string | null;
   result: WalletCreationResult | null;
-  step: 'setup' | 'mnemonic' | 'backup' | 'password' | 'creating' | 'success';
+  step: 'setup' | 'password' | 'creating' | 'mnemonic' | 'backup' | 'success';
   mnemonic: string;
   isBackupConfirmed: boolean;
 }
@@ -31,14 +30,12 @@ export function useWalletCreation() {
   });
 
   /**
-   * Generates a new mnemonic phrase
+   * Moves to password step
    */
-  const generateNewMnemonic = useCallback(() => {
-    const newMnemonic = generateMnemonic();
+  const proceedToPassword = useCallback(() => {
     setState(prev => ({
       ...prev,
-      mnemonic: newMnemonic,
-      step: 'mnemonic',
+      step: 'password',
       error: null
     }));
   }, []);
@@ -50,7 +47,7 @@ export function useWalletCreation() {
     setState(prev => ({
       ...prev,
       isBackupConfirmed: true,
-      step: 'password'
+      step: 'success'
     }));
   }, []);
 
@@ -78,11 +75,13 @@ export function useWalletCreation() {
       const response = await createWallet(params);
       
       if (response.success && response.result) {
+        const result = response.result as WalletCreationResult;
         setState(prev => ({
           ...prev,
           isLoading: false,
-          result: response.result as WalletCreationResult,
-          step: 'success'
+          result: result,
+          mnemonic: result.mnemonic || '', // Use mnemonic from backend
+          step: 'mnemonic' // Show mnemonic for backup
         }));
       } else {
         setState(prev => ({
@@ -122,14 +121,14 @@ export function useWalletCreation() {
   const goBack = useCallback(() => {
     setState(prev => {
       switch (prev.step) {
-        case 'mnemonic':
-          return { ...prev, step: 'setup', mnemonic: '' };
-        case 'backup':
-          return { ...prev, step: 'mnemonic' };
         case 'password':
-          return { ...prev, step: 'backup', isBackupConfirmed: false };
+          return { ...prev, step: 'setup' };
         case 'creating':
           return { ...prev, step: 'password' };
+        case 'mnemonic':
+          return { ...prev, step: 'password', mnemonic: '', result: null };
+        case 'backup':
+          return { ...prev, step: 'mnemonic' };
         default:
           return prev;
       }
@@ -151,26 +150,31 @@ export function useWalletCreation() {
    */
   const canProceed = useCallback((step: string, data?: { password?: string }): boolean => {
     switch (step) {
+      case 'setup':
+        return true;
+      case 'password':
+        return Boolean(data?.password && isPasswordValid(data.password));
       case 'mnemonic':
         return state.mnemonic.length > 0;
       case 'backup':
         return state.isBackupConfirmed;
-      case 'password':
-        return Boolean(data?.password && isPasswordValid(data.password));
       default:
         return true;
     }
   }, [state.mnemonic, state.isBackupConfirmed]);
 
+  const generateNewMnemonic = ()=>{}
+
   return {
     state,
-    generateNewMnemonic,
+    proceedToPassword,
     confirmBackup,
     createNewWallet,
     resetState,
     goBack,
     proceedToBackup,
     canProceed,
-    validatePassword
+    validatePassword,
+    generateNewMnemonic
   };
 }

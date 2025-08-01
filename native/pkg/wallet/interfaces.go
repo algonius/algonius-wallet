@@ -3,7 +3,7 @@ package wallet
 import "context"
 
 type IWalletManager interface {
-	CreateWallet(ctx context.Context, chain string) (address string, publicKey string, err error)
+	CreateWallet(ctx context.Context, chain string) (address string, publicKey string, mnemonic string, err error)
 	ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error)
 	GetBalance(ctx context.Context, address string, token string) (balance string, err error)
 	GetStatus(ctx context.Context) (*WalletStatus, error)

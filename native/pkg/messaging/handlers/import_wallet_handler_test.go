@@ -16,8 +16,8 @@ type MockWalletManagerForImport struct {
 	FailureReason string
 }
 
-func (m *MockWalletManagerForImport) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, err error) {
-	return "0x123", "0x456", nil
+func (m *MockWalletManagerForImport) CreateWallet(ctx context.Context, chain string) (address string, publicKey string, mnemonic string, err error) {
+	return "0x123", "0x456", "", nil
 }
 
 func (m *MockWalletManagerForImport) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error) {
@@ -146,9 +146,9 @@ func TestCreateImportWalletHandler_MissingParameters(t *testing.T) {
 	handler := CreateImportWalletHandler(mockManager)
 
 	tests := []struct {
-		name           string
-		params         ImportWalletParams
-		expectedError  int
+		name          string
+		params        ImportWalletParams
+		expectedError int
 	}{
 		{
 			name: "missing mnemonic",
@@ -231,9 +231,9 @@ func TestCreateImportWalletHandler_InvalidJson(t *testing.T) {
 
 func TestCreateImportWalletHandler_WalletManagerErrors(t *testing.T) {
 	tests := []struct {
-		name            string
-		failureReason   string
-		expectedError   int
+		name          string
+		failureReason string
+		expectedError int
 	}{
 		{
 			name:          "invalid mnemonic error",

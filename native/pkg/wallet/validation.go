@@ -18,11 +18,6 @@ func ValidateMnemonic(mnemonic string) error {
 	// Normalize the mnemonic (trim spaces, lowercase)
 	normalizedMnemonic := strings.TrimSpace(strings.ToLower(mnemonic))
 	
-	// Check if the mnemonic is valid according to BIP39
-	if !bip39.IsMnemonicValid(normalizedMnemonic) {
-		return errors.New("invalid mnemonic phrase")
-	}
-
 	// Check word count (BIP39 supports 12, 15, 18, 21, 24 words)
 	words := strings.Fields(normalizedMnemonic)
 	wordCount := len(words)
@@ -38,6 +33,28 @@ func ValidateMnemonic(mnemonic string) error {
 	
 	if !isValidCount {
 		return fmt.Errorf("invalid mnemonic word count: %d (must be 12, 15, 18, 21, or 24 words)", wordCount)
+	}
+
+	// Check for duplicate words (common issue that makes BIP39 validation fail)
+	wordMap := make(map[string][]int)
+	for i, word := range words {
+		wordMap[word] = append(wordMap[word], i+1) // 1-based position for user-friendly error
+	}
+	
+	var duplicates []string
+	for word, positions := range wordMap {
+		if len(positions) > 1 {
+			duplicates = append(duplicates, fmt.Sprintf("'%s' (positions %v)", word, positions))
+		}
+	}
+	
+	if len(duplicates) > 0 {
+		return fmt.Errorf("invalid mnemonic: duplicate words found: %s", strings.Join(duplicates, ", "))
+	}
+	
+	// Check if the mnemonic is valid according to BIP39
+	if !bip39.IsMnemonicValid(normalizedMnemonic) {
+		return errors.New("invalid mnemonic phrase")
 	}
 
 	return nil
