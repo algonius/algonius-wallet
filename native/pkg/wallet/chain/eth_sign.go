@@ -14,6 +14,11 @@ import (
 // which prefixes the message with "\x19Ethereum Signed Message:\n" + len(message)
 func (e *ETHChain) SignMessage(privateKeyHex, message string) (string, error) {
 	// Parse the private key
+	// Handle case where private key might include "0x" prefix
+	if strings.HasPrefix(privateKeyHex, "0x") {
+		privateKeyHex = privateKeyHex[2:] // Remove "0x" prefix
+	}
+	
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse private key: %w", err)
@@ -36,6 +41,13 @@ func (e *ETHChain) SignMessage(privateKeyHex, message string) (string, error) {
 	signature, err := crypto.Sign(crypto.Keccak256Hash([]byte(fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(messageBytes), messageBytes))).Bytes(), privateKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign message: %w", err)
+	}
+
+	// Ensure the signature conforms to Ethereum standard (v = 27 or 28)
+	// The signature returned by crypto.Sign has v as 0 or 1
+	// Ethereum standard requires v to be 27 or 28
+	if len(signature) == 65 && (signature[64] == 0 || signature[64] == 1) {
+		signature[64] += 27 // Convert 0->27, 1->28
 	}
 
 	// Convert the signature to hex format

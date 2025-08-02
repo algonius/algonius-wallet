@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/algonius/algonius-wallet/native/pkg/event"
@@ -255,19 +256,44 @@ func handlePersonalSign(id string, params Web3RequestParams, manager wallet.IWal
 		message = string(msg)
 	case []interface{}:
 		// Convert byte array to string
-		byteArray := make([]byte, len(msg))
-		for i, v := range msg {
-			if val, ok := v.(float64); ok {
-				byteArray[i] = byte(val)
+		// Check if this is a map with numeric keys (which is how JS objects are serialized)
+		if len(msg) > 0 {
+			// Regular array of numbers
+			byteArray := make([]byte, len(msg))
+			for i, v := range msg {
+				if val, ok := v.(float64); ok {
+					byteArray[i] = byte(val)
+				}
+			}
+			message = string(byteArray)
+		}
+	case map[string]interface{}:
+		// Handle map representation of byte array
+		// Find the length of the map to determine array size
+		maxIndex := -1
+		for key := range msg {
+			if idx, err := strconv.Atoi(key); err == nil && idx > maxIndex {
+				maxIndex = idx
 			}
 		}
-		message = string(byteArray)
+		
+		if maxIndex >= 0 {
+			byteArray := make([]byte, maxIndex+1)
+			for key, value := range msg {
+				if idx, err := strconv.Atoi(key); err == nil {
+					if num, ok := value.(float64); ok {
+						byteArray[idx] = byte(num)
+					}
+				}
+			}
+			message = string(byteArray)
+		}
 	default:
 		return messaging.RpcResponse{
 			ID: id,
 			Error: &messaging.ErrorInfo{
 				Code:    -32602,
-				Message: "Invalid message format",
+				Message: fmt.Sprintf("Invalid message format: %T", msg),
 			},
 		}, nil
 	}
