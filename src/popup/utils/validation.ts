@@ -66,7 +66,7 @@ export function validateMnemonic(mnemonic: string): MnemonicValidation {
  * Validates chain name
  */
 export function validateChain(chain: string): boolean {
-  const supportedChains = ['ethereum', 'bsc'];
+  const supportedChains = ['ethereum', 'bsc', 'solana'];
   return supportedChains.includes(chain.toLowerCase());
 }
 
