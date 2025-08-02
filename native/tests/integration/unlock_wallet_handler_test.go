@@ -59,8 +59,8 @@ func TestUnlockWalletHandler_Success(t *testing.T) {
 	
 	statusResult, ok := statusResponse["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult["has_wallet"].(bool), "should have wallet")
-	require.False(t, statusResult["is_unlocked"].(bool), "wallet should be locked")
+	require.True(t, statusResult["hasWallet"].(bool), "should have wallet")
+	require.False(t, statusResult["isUnlocked"].(bool), "wallet should be locked")
 
 	// Now test unlocking with correct password
 	unlockParams := map[string]interface{}{
@@ -100,8 +100,8 @@ func TestUnlockWalletHandler_Success(t *testing.T) {
 	
 	statusResult2, ok := statusResponse2["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult2["has_wallet"].(bool), "should have wallet")
-	require.True(t, statusResult2["is_unlocked"].(bool), "wallet should be unlocked")
+	require.True(t, statusResult2["hasWallet"].(bool), "should have wallet")
+	require.True(t, statusResult2["isUnlocked"].(bool), "wallet should be unlocked")
 	require.Equal(t, address, statusResult2["address"].(string), "status should show correct address")
 }
 
@@ -164,8 +164,8 @@ func TestUnlockWalletHandler_WrongPassword(t *testing.T) {
 	
 	statusResult, ok := statusResponse["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult["has_wallet"].(bool), "should have wallet")
-	require.False(t, statusResult["is_unlocked"].(bool), "wallet should remain locked")
+	require.True(t, statusResult["hasWallet"].(bool), "should have wallet")
+	require.False(t, statusResult["isUnlocked"].(bool), "wallet should remain locked")
 }
 
 func TestUnlockWalletHandler_NoWallet(t *testing.T) {
@@ -185,7 +185,7 @@ func TestUnlockWalletHandler_NoWallet(t *testing.T) {
 	statusResult, ok := statusResponse["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
 	
-	hasWallet := statusResult["has_wallet"].(bool)
+	hasWallet := statusResult["hasWallet"].(bool)
 	
 	if hasWallet {
 		t.Skip("Wallet already exists in test environment, skipping no-wallet test")
@@ -273,7 +273,7 @@ func TestLockWalletHandler(t *testing.T) {
 	require.NoError(t, err, "failed to get wallet status")
 	statusResult, ok := statusResponse["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult["is_unlocked"].(bool), "wallet should be unlocked after import")
+	require.True(t, statusResult["isUnlocked"].(bool), "wallet should be unlocked after import")
 
 	// Now lock the wallet
 	lockResponse, err := nativeMsg.RpcRequest(ctx, "lock_wallet", map[string]interface{}{})
@@ -291,8 +291,8 @@ func TestLockWalletHandler(t *testing.T) {
 	require.NoError(t, err, "failed to get wallet status after lock")
 	statusResult2, ok := statusResponse2["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult2["has_wallet"].(bool), "should still have wallet")
-	require.False(t, statusResult2["is_unlocked"].(bool), "wallet should be locked")
+	require.True(t, statusResult2["hasWallet"].(bool), "should still have wallet")
+	require.False(t, statusResult2["isUnlocked"].(bool), "wallet should be locked")
 	require.NotContains(t, statusResult2, "address", "address should not be present when locked")
 }
 
@@ -315,10 +315,10 @@ func TestWalletStatusHandler(t *testing.T) {
 	statusResult, ok := statusResponse["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
 	
-	initialHasWallet := statusResult["has_wallet"].(bool)
-	initialIsUnlocked := statusResult["is_unlocked"].(bool)
+	initialHasWallet := statusResult["hasWallet"].(bool)
+	initialIsUnlocked := statusResult["isUnlocked"].(bool)
 	
-	t.Logf("Initial wallet status: has_wallet=%v, is_unlocked=%v", initialHasWallet, initialIsUnlocked)
+	t.Logf("Initial wallet status: hasWallet=%v, isUnlocked=%v", initialHasWallet, initialIsUnlocked)
 
 	// Import a wallet
 	importParams := map[string]interface{}{
@@ -339,8 +339,8 @@ func TestWalletStatusHandler(t *testing.T) {
 	require.NoError(t, err, "failed to get wallet status after import")
 	statusResult2, ok := statusResponse2["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult2["has_wallet"].(bool), "should have wallet after import")
-	require.True(t, statusResult2["is_unlocked"].(bool), "should be unlocked after import")
+	require.True(t, statusResult2["hasWallet"].(bool), "should have wallet after import")
+	require.True(t, statusResult2["isUnlocked"].(bool), "should be unlocked after import")
 	require.Equal(t, address, statusResult2["address"].(string), "should show correct address when unlocked")
 
 	// Lock the wallet
@@ -352,7 +352,7 @@ func TestWalletStatusHandler(t *testing.T) {
 	require.NoError(t, err, "failed to get wallet status after lock")
 	statusResult3, ok := statusResponse3["result"].(map[string]interface{})
 	require.True(t, ok, "status result should be a map")
-	require.True(t, statusResult3["has_wallet"].(bool), "should still have wallet after lock")
-	require.False(t, statusResult3["is_unlocked"].(bool), "should not be unlocked after lock")
+	require.True(t, statusResult3["hasWallet"].(bool), "should still have wallet after lock")
+	require.False(t, statusResult3["isUnlocked"].(bool), "should not be unlocked after lock")
 	require.NotContains(t, statusResult3, "address", "address should not be present when locked")
 }

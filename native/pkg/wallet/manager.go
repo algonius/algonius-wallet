@@ -407,6 +407,10 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	}
 
 	wm.isUnlocked = true
+	wm.logger.Info("ImportWallet completed successfully", 
+		zap.Bool("isUnlocked", wm.isUnlocked),
+		zap.Bool("hasCurrentWalletData", wm.currentWalletData != nil),
+		zap.String("address", walletInfo.Address))
 
 	return walletInfo.Address, walletInfo.PublicKey, importTime, nil
 }
@@ -1172,6 +1176,9 @@ func (wm *WalletManager) LockWallet() {
 
 // IsUnlocked returns whether the wallet is currently unlocked
 func (wm *WalletManager) IsUnlocked() bool {
+	wm.logger.Info("IsUnlocked check", 
+		zap.Bool("isUnlocked", wm.isUnlocked),
+		zap.Bool("hasCurrentWalletData", wm.currentWalletData != nil))
 	return wm.isUnlocked && wm.currentWalletData != nil
 }
 
