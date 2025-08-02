@@ -94,6 +94,55 @@ func (b *BSCChain) CreateWallet(ctx context.Context) (*WalletInfo, error) {
 	}, nil
 }
 
+// ImportFromMnemonic imports a wallet from mnemonic phrase with derivation path
+func (b *BSCChain) ImportFromMnemonic(ctx context.Context, mnemonic, derivationPath string) (*WalletInfo, error) {
+	// Validate mnemonic
+	if !bip39.IsMnemonicValid(mnemonic) {
+		return nil, errors.New("invalid mnemonic phrase")
+	}
+	
+	// Generate seed from mnemonic
+	seed := bip39.NewSeed(mnemonic, "")
+	
+	// Use default derivation path if not provided
+	if derivationPath == "" {
+		derivationPath = "m/44'/60'/0'/0/0" // BSC uses same derivation as Ethereum
+	}
+	
+	// For simplicity, use the seed to derive the private key
+	// In production, you'd implement proper HD wallet derivation with the path
+	if len(seed) < 32 {
+		return nil, errors.New("insufficient seed length")
+	}
+	
+	// Create private key from seed
+	privateKey, err := crypto.ToECDSA(seed[:32])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create private key: %w", err)
+	}
+	
+	// Derive public key
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, errors.New("failed to get public key")
+	}
+	
+	// Generate BSC address (same as Ethereum)
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	
+	// Convert keys to hex strings
+	privateKeyHex := hexutil.Encode(crypto.FromECDSA(privateKey))
+	publicKeyHex := hexutil.Encode(crypto.FromECDSAPub(publicKeyECDSA))
+	
+	return &WalletInfo{
+		Address:    address.Hex(),
+		PublicKey:  publicKeyHex,
+		PrivateKey: privateKeyHex,
+		Mnemonic:   mnemonic,
+	}, nil
+}
+
 // GetBalance retrieves the balance for a BSC address
 func (b *BSCChain) GetBalance(ctx context.Context, address string, token string) (string, error) {
 	// Validate address format

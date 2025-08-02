@@ -1,7 +1,9 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { CreateWallet } from "./components/WalletSetup/CreateWallet";
 import { ImportWallet } from "./components/WalletSetup/ImportWallet";
+import { UnlockWallet } from "./components/WalletSetup/UnlockWallet";
 import { Button } from "./components/common/Button";
+import { useNativeMessaging } from "./hooks/useNativeMessaging";
 
 // MCP Host Status interface
 interface McpHostStatus {
@@ -16,7 +18,7 @@ interface McpHostStatus {
 }
 
 // App view states
-type AppView = 'status' | 'setup' | 'create' | 'import' | 'wallet';
+type AppView = 'main' | 'setup' | 'create' | 'import' | 'unlock' | 'wallet-ready';
 
 const getMcpStatus = (): Promise<{ status: McpHostStatus }> => {
   return new Promise((resolve) => {
@@ -61,7 +63,14 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<AppView>('status');
+  const [currentView, setCurrentView] = useState<AppView>('main');
+  const [walletStatus, setWalletStatus] = useState<{
+    hasWallet: boolean;
+    isUnlocked: boolean;
+    address?: string;
+  }>({ hasWallet: false, isUnlocked: false });
+
+  const { getWalletStatus } = useNativeMessaging();
 
   // 获取MCP Host状态
   const fetchStatus = useCallback(async () => {
@@ -70,15 +79,43 @@ const App: React.FC = () => {
     try {
       const res = await getMcpStatus();
       setStatus(res.status);
+      
+      // 如果MCP Host已连接，检查钱包状态
+      if (res.status.isConnected) {
+        try {
+          const walletRes = await getWalletStatus();
+          setWalletStatus(walletRes);
+          
+          // 如果钱包已存在且当前视图是status，并且用户还没有手动切换到wallet视图，切换到wallet视图
+          // 但只在用户第一次打开popup时自动切换，避免在用户手动导航时干扰
+          // 同时确保钱包确实是解锁状态
+          if (walletRes.hasWallet && walletRes.isUnlocked && 
+              !sessionStorage.getItem('autoWalletRedirectDone')) {
+            setCurrentView('main');
+            // 标记已执行过自动重定向
+            sessionStorage.setItem('autoWalletRedirectDone', 'true');
+          }
+          // 如果钱包已解锁且当前在wallet视图，确保界面正确显示
+          else if (walletRes.hasWallet && walletRes.isUnlocked && currentView === 'wallet-ready') {
+            // 强制更新状态以确保界面正确显示
+            setWalletStatus(prev => ({...prev, ...walletRes}));
+          }
+        } catch (walletErr) {
+          console.log('Wallet status check failed:', walletErr);
+          // 钱包状态检查失败不应该影响MCP状态显示
+        }
+      }
     } catch (err) {
       setError('Failed to get MCP Host status');
       console.error('Failed to get MCP status:', err);
     }
     setLoading(false);
-  }, []);
+  }, [getWalletStatus, currentView]);
 
   // 首次加载和定时刷新
   useEffect(() => {
+    // 清除自动重定向标记，确保每次打开popup都能正确显示
+    sessionStorage.removeItem('autoWalletRedirectDone');
     fetchStatus();
     const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
@@ -174,8 +211,14 @@ const App: React.FC = () => {
 
   // View management functions
   const handleSetupWallet = useCallback(() => {
-    setCurrentView('setup');
-  }, []);
+    // If wallet exists but is locked, go to unlock view
+    // Otherwise go to setup view
+    if (walletStatus.hasWallet && !walletStatus.isUnlocked) {
+      setCurrentView('unlock');
+    } else {
+      setCurrentView('setup');
+    }
+  }, [walletStatus]);
 
   const handleCreateWallet = useCallback(() => {
     setCurrentView('create');
@@ -185,13 +228,39 @@ const App: React.FC = () => {
     setCurrentView('import');
   }, []);
 
-  const handleWalletComplete = useCallback(() => {
-    setCurrentView('wallet');
-  }, []);
+  const handleWalletComplete = useCallback(async () => {
+    // 钱包设置完成后，刷新钱包状态
+    try {
+      const walletRes = await getWalletStatus();
+      setWalletStatus(walletRes);
+      setCurrentView('wallet-ready');
+    } catch (err) {
+      console.error('Failed to refresh wallet status:', err);
+      setCurrentView('wallet-ready'); // 仍然切换到钱包视图
+    }
+  }, [getWalletStatus]);
 
   const handleBackToStatus = useCallback(() => {
-    setCurrentView('status');
+    setCurrentView('main');
   }, []);
+
+  const handleUnlockComplete = useCallback(async () => {
+    // 钱包解锁完成后，刷新钱包状态并进入wallet视图
+    try {
+      const walletRes = await getWalletStatus();
+      setWalletStatus(walletRes);
+      // 标记已执行过自动重定向，避免定时刷新时再次自动切换
+      sessionStorage.setItem('autoWalletRedirectDone', 'true');
+      // 直接进入wallet视图而不是status视图
+      setCurrentView('wallet-ready');
+      // 同时更新MCP状态以确保界面同步
+      fetchStatus();
+    } catch (err) {
+      console.error('Failed to refresh wallet status:', err);
+      // 出错时也进入wallet视图
+      setCurrentView('wallet-ready');
+    }
+  }, [getWalletStatus, fetchStatus]);
 
   // Render different views based on current view state
   const renderView = () => {
@@ -267,7 +336,15 @@ const App: React.FC = () => {
           />
         );
 
-      case 'wallet':
+      case 'unlock':
+        return (
+          <UnlockWallet
+            onComplete={handleUnlockComplete}
+            onCancel={handleBackToStatus}
+          />
+        );
+
+      case 'wallet-ready':
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">
@@ -382,22 +459,66 @@ const App: React.FC = () => {
               </div>
             </section>
 
-            {/* Wallet Setup Section */}
+            {/* Wallet Status Section */}
             <section className="mb-4">
               <h2 className="text-lg font-semibold mb-2">Wallet</h2>
               <div className="bg-gray-100 rounded p-3 space-y-2">
-                <div className="text-center">
-                  <div className="text-gray-400 mb-3">
-                    No wallet configured
+                {status.isConnected ? (
+                  walletStatus.hasWallet ? (
+                    <div className="text-center">
+                      <div className="text-green-600 mb-2">
+                        ✓ Wallet configured
+                      </div>
+                      {walletStatus.address && (
+                        <div className="text-xs text-gray-600 mb-3 font-mono">
+                          {walletStatus.address.slice(0, 6)}...{walletStatus.address.slice(-4)}
+                        </div>
+                      )}
+                      <div className="flex justify-center space-x-2">
+                        {walletStatus.isUnlocked ? (
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() => {
+                              // 标记已执行过自动重定向，避免定时刷新时再次自动切换
+                              sessionStorage.setItem('autoWalletRedirectDone', 'true');
+                              setCurrentView('wallet-ready');
+                            }}
+                          >
+                            Go to Wallet
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            onClick={handleSetupWallet}
+                          >
+                            Unlock Wallet
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-gray-400 mb-3">
+                        No wallet configured
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={handleSetupWallet}
+                      >
+                        Setup Wallet
+                      </Button>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center">
+                    <div className="text-gray-400 mb-3">
+                      MCP Host not connected
+                    </div>
                   </div>
-                  <Button
-                    variant="primary"
-                    size="small"
-                    onClick={handleSetupWallet}
-                  >
-                    Setup Wallet
-                  </Button>
-                </div>
+                )}
               </div>
             </section>
 

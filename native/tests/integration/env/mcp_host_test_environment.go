@@ -111,15 +111,19 @@ func (env *McpHostTestEnvironment) buildMcpHost() error {
 }
 
 func (env *McpHostTestEnvironment) startMcpHost(ctx context.Context) error {
-	// Prepare environment variables
+	// Use test data directory as isolated wallet home
+	testWalletHome := env.testDataDir
+
+	// Prepare environment variables with isolated paths
 	environ := append(os.Environ(),
 		fmt.Sprintf("SSE_PORT=:%d", env.port),
 		fmt.Sprintf("SSE_BASE_URL=%s", env.baseURL),
 		fmt.Sprintf("LOG_FILE=%s", env.logFilePath),
+		fmt.Sprintf("ALGONIUS_WALLET_HOME=%s", testWalletHome),
 		"LOG_LEVEL=debug",
 		"RUN_MODE=test",
 	)
-	
+
 	// Add mock mode configuration if enabled
 	if env.config != nil && env.config.MockMode {
 		environ = append(environ, "DEX_MOCK_MODE=true")

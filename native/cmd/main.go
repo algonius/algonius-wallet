@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/algonius/algonius-wallet/native/pkg/config"
 	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/algonius/algonius-wallet/native/pkg/dex/providers"
 	"github.com/algonius/algonius-wallet/native/pkg/event"
@@ -77,28 +78,24 @@ func main() {
 		os.Exit(0)
 	}
 	
-	// Skip process locking in test mode
-	if os.Getenv("RUN_MODE") != "test" {
-		// Try to acquire PID file lock to prevent multiple instances
-		locked, err := process.LockPIDFile()
-		if err != nil {
-			os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
-			os.Exit(1)
-		}
-		
-		if !locked {
-			os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
-			os.Exit(1)
-		}
+	// Try to acquire PID file lock to prevent multiple instances
+	// PID file location now respects ALGONIUS_WALLET_HOME environment variable
+	locked, err := process.LockPIDFile()
+	if err != nil {
+		os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
+		os.Exit(1)
 	}
 	
-	// Ensure we unlock the PID file when the program exits (only if not in test mode)
+	if !locked {
+		os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
+		os.Exit(1)
+	}
+	
+	// Ensure we unlock the PID file when the program exits
 	defer func() {
-		if os.Getenv("RUN_MODE") != "test" {
-			if err := process.UnlockPIDFile(); err != nil {
-				// Log error but don't fail the program
-				os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
-			}
+		if err := process.UnlockPIDFile(); err != nil {
+			// Log error but don't fail the program
+			os.Stderr.WriteString("Failed to unlock PID file: " + err.Error() + "\n")
 		}
 	}()
 
@@ -109,6 +106,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Extract zap logger from the wrapper for configuration loading
+	zapLogger := logr.(*logger.ZapLogger).Logger
+
+	// Load configuration 
+	appConfig, err := config.LoadConfigWithFallback(zapLogger)
+	if err != nil {
+		zapLogger.Error("Failed to load configuration", zap.Error(err))
+		os.Exit(1)
+	}
+
+	// Initialize DEX aggregator (placeholder for now)
+	var dexAggregator dex.IDEXAggregator // nil for now, can be initialized later
+
 	// Initialize global host state
 	hostState := &HostState{
 		startTime:  0, // will be set on init
@@ -117,11 +127,8 @@ func main() {
 		shutdownCh: make(chan struct{}),
 	}
 
-	// Create shared wallet manager for both MCP and Native Messaging
-	walletManager := wallet.NewWalletManager()
-
-	// Extract zap logger from the wrapper for EventBroadcaster
-	zapLogger := logr.(*logger.ZapLogger).Logger
+	// Create shared wallet manager with configuration
+	walletManager := wallet.NewWalletManagerWithConfig(appConfig, dexAggregator, zapLogger)
 	
 	// Create EventBroadcaster for real-time events to AI Agents
 	eventBroadcaster := event.NewEventBroadcaster(zapLogger)
@@ -139,7 +146,10 @@ func main() {
 
 	// Register wallet RPC methods (only available via Native Messaging)
 	nm.RegisterRpcMethod("import_wallet", handlers.CreateImportWalletHandler(walletManager))
-	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager))
+	nm.RegisterRpcMethod("create_wallet", handlers.CreateCreateWalletHandler(walletManager, zapLogger))
+	nm.RegisterRpcMethod("unlock_wallet", handlers.CreateUnlockWalletHandler(walletManager))
+	nm.RegisterRpcMethod("lock_wallet", handlers.CreateLockWalletHandler(walletManager))
+	nm.RegisterRpcMethod("wallet_status", handlers.CreateWalletStatusHandler(walletManager, zapLogger))
 	nm.RegisterRpcMethod("web3_request", handlers.CreateWeb3RequestHandler(walletManager, eventBroadcaster))
 
 	// Register init, status, shutdown RPC methods
@@ -236,7 +246,7 @@ func main() {
 	mcp.RegisterTool(s, approveTransactionTool)
 
 	// Create DEX aggregator with OKX and Direct providers
-	dexAggregator := dex.NewDEXAggregator(zapLogger)
+	dexAggregator = dex.NewDEXAggregator(zapLogger)
 	
 	// Register Direct provider for backward compatibility
 	directProvider := providers.NewDirectProvider(zapLogger)

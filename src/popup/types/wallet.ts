@@ -39,7 +39,7 @@ export interface WalletOperationResponse {
   error?: WalletError;
 }
 
-export type SupportedChain = 'ethereum' | 'bsc';
+export type SupportedChain = 'ethereum' | 'bsc' | 'solana';
 
 export interface ValidationError {
   field: string;

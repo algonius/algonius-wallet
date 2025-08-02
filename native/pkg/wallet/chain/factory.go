@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/algonius/algonius-wallet/native/pkg/config"
 	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"go.uber.org/zap"
 )
@@ -36,7 +37,7 @@ func NewChainFactory() *ChainFactory {
 }
 
 // NewChainFactoryWithDEX creates a new chain factory with DEX aggregator support
-func NewChainFactoryWithDEX(dexAggregator dex.IDEXAggregator, logger *zap.Logger) *ChainFactory {
+func NewChainFactoryWithDEX(dexAggregator dex.IDEXAggregator, logger *zap.Logger, config *config.Config) *ChainFactory {
 	factory := &ChainFactory{
 		chains:        make(map[string]IChain),
 		dexAggregator: dexAggregator,
@@ -48,13 +49,22 @@ func NewChainFactoryWithDEX(dexAggregator dex.IDEXAggregator, logger *zap.Logger
 	factory.RegisterChain("ETHEREUM", NewETHChain(dexAggregator, logger))
 	factory.RegisterChain("BSC", NewBSCChain(dexAggregator, logger))
 	factory.RegisterChain("BINANCE", NewBSCChain(dexAggregator, logger))
-	// Handle potential error from NewSolanaChain
-	if solanaChain, err := NewSolanaChain(dexAggregator, logger); err == nil {
-		factory.RegisterChain("SOL", solanaChain)
-		factory.RegisterChain("SOLANA", solanaChain)
+	
+	// Handle potential error from NewSolanaChain with injected configuration
+	if config != nil {
+		if solanaChain, err := NewSolanaChain(dexAggregator, logger, &config.Chains.Solana, &config.DEX); err == nil {
+			factory.RegisterChain("SOL", solanaChain)
+			factory.RegisterChain("SOLANA", solanaChain)
+		} else {
+			// Fallback to legacy Solana chain if enhanced version fails
+			logger.Warn("Failed to create enhanced Solana chain, using legacy version", zap.Error(err))
+			legacyChain := NewSolanaChainLegacy()
+			factory.RegisterChain("SOL", legacyChain)
+			factory.RegisterChain("SOLANA", legacyChain)
+		}
 	} else {
-		// Fallback to legacy Solana chain if enhanced version fails
-		logger.Warn("Failed to create enhanced Solana chain, using legacy version", zap.Error(err))
+		// No config provided, use legacy chain
+		logger.Warn("No configuration provided, using legacy Solana chain")
 		legacyChain := NewSolanaChainLegacy()
 		factory.RegisterChain("SOL", legacyChain)
 		factory.RegisterChain("SOLANA", legacyChain)
@@ -114,19 +124,13 @@ func (cf *ChainFactory) SetDEXAggregator(dexAggregator dex.IDEXAggregator, logge
 	cf.chains["ETHEREUM"] = NewETHChain(dexAggregator, logger)
 	cf.chains["BSC"] = NewBSCChain(dexAggregator, logger)
 	cf.chains["BINANCE"] = NewBSCChain(dexAggregator, logger)
-	// Handle potential error from NewSolanaChain
-	if solanaChain, err := NewSolanaChain(dexAggregator, logger); err == nil {
-		cf.chains["SOL"] = solanaChain
-		cf.chains["SOLANA"] = solanaChain
-	} else {
-		// Fallback to legacy Solana chain if enhanced version fails
-		if logger != nil {
-			logger.Warn("Failed to create enhanced Solana chain, using legacy version", zap.Error(err))
-		}
-		legacyChain := NewSolanaChainLegacy()
-		cf.chains["SOL"] = legacyChain
-		cf.chains["SOLANA"] = legacyChain
+	// Handle potential error from NewSolanaChain - use legacy since no config available
+	if logger != nil {
+		logger.Warn("No configuration provided for Solana chain, using legacy version")
 	}
+	legacyChain := NewSolanaChainLegacy()
+	cf.chains["SOL"] = legacyChain
+	cf.chains["SOLANA"] = legacyChain
 
 	if logger != nil {
 		logger.Info("Chain factory updated with DEX aggregator support")

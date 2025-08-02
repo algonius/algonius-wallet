@@ -3,7 +3,7 @@ package wallet
 import "context"
 
 type IWalletManager interface {
-	CreateWallet(ctx context.Context, chain string) (address string, publicKey string, err error)
+	CreateWallet(ctx context.Context, chain, password string) (address string, publicKey string, mnemonic string, err error)
 	ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error)
 	GetBalance(ctx context.Context, address string, token string) (balance string, err error)
 	GetStatus(ctx context.Context) (*WalletStatus, error)
@@ -14,4 +14,12 @@ type IWalletManager interface {
 	GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*HistoricalTransaction, error)
 	GetAccounts(ctx context.Context) ([]string, error)
 	AddPendingTransaction(ctx context.Context, tx *PendingTransaction) error
+	SignMessage(ctx context.Context, address, message string) (signature string, err error)
+	
+	// Wallet storage and security methods
+	UnlockWallet(password string) error
+	LockWallet()
+	IsUnlocked() bool
+	HasWallet() bool
+	GetCurrentWallet() *WalletStatus
 }

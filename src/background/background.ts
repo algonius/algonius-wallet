@@ -108,7 +108,10 @@ async function handleNativeRpc(
   sendResponse: (response?: unknown) => void
 ) {
   try {
+    console.log('Native RPC:', (request as { method?: string })?.method);
+    
     if (!mcpHostManager.getStatus().isConnected) {
+      console.log('❌ MCP Host not connected');
       sendResponse({ error: { message: 'MCP Host not connected' } });
       return;
     }
@@ -119,34 +122,42 @@ async function handleNativeRpc(
       !("method" in request) ||
       !("params" in request)
     ) {
+      console.log('❌ Invalid RPC request format');
       sendResponse({ error: { message: "Invalid native RPC request" } });
       return;
     }
 
     const { method, params } = request as { method: string; params: unknown };
-
+    
     // Forward the request to MCP Host via RPC
     const response = await mcpHostManager.rpcRequest({
       method,
       params
     });
-
+    
     if (response.error) {
-      sendResponse({ error: response.error });
+      console.log('❌ RPC Error:', response.error);
+      // Properly format the error for transmission
+      const formattedError = typeof response.error === 'object' 
+        ? JSON.stringify(response.error) 
+        : response.error;
+      sendResponse({ error: formattedError });
     } else {
-      sendResponse(response.result);
+      console.log('✅ RPC Success:', method, 'Response:', response.result);
+      sendResponse({ result: response.result });
     }
   } catch (error) {
     console.error('Native RPC request failed:', error);
     sendResponse({ 
       error: { 
+        code: -32603,
         message: error instanceof Error ? error.message : String(error) 
       } 
     });
   }
 }
 
-/**
+/** 
  * Handle Web3 provider requests from content scripts
  */
 async function handleWeb3Request(
@@ -155,7 +166,13 @@ async function handleWeb3Request(
   sendResponse: (response?: unknown) => void
 ) {
   try {
-    if (!mcpHostManager.getStatus().isConnected) {
+    console.log('Handling Web3 request:', request);
+    
+    const status = mcpHostManager.getStatus();
+    console.log('MCP Host status:', status);
+    
+    if (!status.isConnected) {
+      console.log('MCP Host not connected');
       sendResponse({ error: 'MCP Host not connected' });
       return;
     }
@@ -165,25 +182,46 @@ async function handleWeb3Request(
       request === null ||
       !("method" in request)
     ) {
+      console.log('Invalid Web3 request');
       sendResponse({ error: "Invalid Web3 request" });
       return;
     }
 
+    // Extract chain information if provided
+    const chain = (request as { chain?: string }).chain || 'ethereum';
+    console.log(`Processing ${chain} request`);
+
     // Forward the request to MCP Host via RPC
+    console.log('Forwarding request to MCP Host');
     const response = await mcpHostManager.rpcRequest({
       method: 'web3_request',
       params: {
         method: (request as { method: string }).method,
         params: (request as { params?: unknown }).params,
-        origin: sender.tab?.url
+        origin: sender.tab?.url,
+        chain: chain // Include chain information
       }
     });
-
-    sendResponse(response.result);
+    
+    console.log('Web3 request response from MCP Host:', response);
+    
+    // Properly format response for transmission
+    if (response.error) {
+      const formattedError = typeof response.error === 'object' 
+        ? JSON.stringify(response.error) 
+        : response.error;
+      sendResponse({ error: formattedError });
+    } else {
+      sendResponse({
+        result: response.result,
+        error: response.error
+      });
+    }
   } catch (error) {
     console.error('Web3 request failed:', error);
+    const formattedError = error instanceof Error ? error.message : String(error);
     sendResponse({ 
-      error: error instanceof Error ? error.message : String(error) 
+      error: formattedError
     });
   }
 }

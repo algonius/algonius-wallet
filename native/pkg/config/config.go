@@ -176,7 +176,7 @@ type LoggingConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Wallet: WalletConfig{
-			DataDir:     "~/.algonius-wallet",
+			DataDir:     getWalletHomeDir(),
 			NetworkMode: "mainnet",
 		},
 		Chains: ChainsConfig{
@@ -338,6 +338,11 @@ func LoadConfig(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 	
+	// Expand tilde paths in configuration values
+	if err := expandConfigPaths(&config); err != nil {
+		return nil, fmt.Errorf("failed to expand config paths: %w", err)
+	}
+	
 	return &config, nil
 }
 
@@ -377,21 +382,28 @@ func GetConfigPath() string {
 		return configPath
 	}
 	
-	// Default path
-	return "~/.algonius-wallet/config.yaml"
+	// Check if home directory is overridden
+	homeDir := getWalletHomeDir()
+	return filepath.Join(homeDir, "config.yaml")
 }
 
-// LoadConfigWithFallback loads config with test fallback based on RUN_MODE
-func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
-	runMode := os.Getenv("RUN_MODE")
-	
-	if runMode == "test" {
-		if logger != nil {
-			logger.Info("Using test configuration (RUN_MODE=test)")
-		}
-		return TestConfig(), nil
+// getWalletHomeDir returns the wallet home directory, respecting environment override
+func getWalletHomeDir() string {
+	// Check environment variable first
+	if homeDir := os.Getenv("ALGONIUS_WALLET_HOME"); homeDir != "" {
+		return homeDir
 	}
 	
+	// Default path
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(userHome, ".algonius-wallet")
+}
+
+// LoadConfigWithFallback loads config with fallback to defaults
+func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
 	configPath := GetConfigPath()
 	config, err := LoadConfig(configPath)
 	if err != nil {
@@ -406,8 +418,32 @@ func LoadConfigWithFallback(logger *zap.Logger) (*Config, error) {
 	if logger != nil {
 		logger.Info("Configuration loaded successfully", 
 			zap.String("config_path", configPath),
+			zap.String("wallet_home", config.Wallet.DataDir),
 			zap.String("network_mode", config.Wallet.NetworkMode))
 	}
 	
 	return config, nil
+}
+
+// expandConfigPaths expands tilde (~) paths in configuration values
+func expandConfigPaths(config *Config) error {
+	// Expand DataDir path
+	if config.Wallet.DataDir != "" && config.Wallet.DataDir[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory for DataDir: %w", err)
+		}
+		config.Wallet.DataDir = filepath.Join(homeDir, config.Wallet.DataDir[1:])
+	}
+	
+	// Expand OutputFile path in logging config
+	if config.Logging.OutputFile != "" && config.Logging.OutputFile[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory for OutputFile: %w", err)
+		}
+		config.Logging.OutputFile = filepath.Join(homeDir, config.Logging.OutputFile[1:])
+	}
+	
+	return nil
 }

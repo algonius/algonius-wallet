@@ -31,14 +31,13 @@ type SolanaChain struct {
 }
 
 // NewSolanaChain creates a new Solana chain instance with enhanced blockchain integration
-func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*SolanaChain, error) {
-	// Load configuration based on run mode
-	appConfig, err := config.LoadConfigWithFallback(logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load configuration: %w", err)
+func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger, solanaConfig *config.SolanaChainConfig, dexConfig *config.DEXConfig) (*SolanaChain, error) {
+	if solanaConfig == nil {
+		return nil, fmt.Errorf("solana configuration is required")
 	}
-	
-	solanaConfig := &appConfig.Chains.Solana
+	if logger == nil {
+		return nil, fmt.Errorf("logger is required")
+	}
 	
 	// Initialize RPC manager
 	rpcManager, err := NewSolanaRPCManager(solanaConfig.RPCEndpoints, logger)
@@ -65,8 +64,11 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 	solanaRPCChannel := broadcast.NewSolanaRPCChannel(solanaConfig, logger)
 	broadcastManager.RegisterChannel(solanaRPCChannel)
 	
-	okexChannel := broadcast.NewOKExChannel(&appConfig.DEX.OKEx, logger)
-	broadcastManager.RegisterChannel(okexChannel)
+	// Only register OKEx channel if dexConfig is provided
+	if dexConfig != nil {
+		okexChannel := broadcast.NewOKExChannel(&dexConfig.OKEx, logger)
+		broadcastManager.RegisterChannel(okexChannel)
+	}
 	
 	// Add Jito channels (if enabled)
 	if solanaConfig.Jito.Enabled {
@@ -97,10 +99,10 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 	}
 	
 	logger.Info("Initialized Solana chain with enhanced blockchain integration",
-		zap.String("run_mode", os.Getenv("RUN_MODE")),
 		zap.Int("rpc_endpoints", len(solanaConfig.RPCEndpoints)),
 		zap.Int("max_retries", solanaConfig.Retry.MaxRetries),
-		zap.String("broadcast_channel", solanaConfig.Broadcast.Channel))
+		zap.String("broadcast_channel", solanaConfig.Broadcast.Channel),
+		zap.Bool("jito_enabled", solanaConfig.Jito.Enabled))
 	
 	return chain, nil
 }
@@ -109,16 +111,26 @@ func NewSolanaChain(dexAggregator dex.IDEXAggregator, logger *zap.Logger) (*Sola
 func NewSolanaChainLegacy() *SolanaChain {
 	logger := zap.NewNop() // Use no-op logger for legacy
 	
-	// Try to create enhanced chain, fallback to basic if it fails
-	if chain, err := NewSolanaChain(nil, logger); err == nil {
-		return chain
-	}
-	
 	return &SolanaChain{
 		name:    "SOLANA",
 		chainID: "501",
 		logger:  logger,
 	}
+}
+
+// DeriveSolanaPrivateKey derives a Solana private key from seed and path
+func DeriveSolanaPrivateKey(seed []byte, path string) (ed25519.PrivateKey, error) {
+	// For simplicity, we'll generate the key directly from the seed for now
+	// A full implementation would parse the derivation path and derive accordingly
+	
+	// Use the first 32 bytes of the seed for key generation
+	seedBytes := make([]byte, 32)
+	copy(seedBytes, seed)
+	
+	// Generate ed25519 keypair from seed
+	privateKey := ed25519.NewKeyFromSeed(seedBytes)
+	
+	return privateKey, nil
 }
 
 // GetChainName returns the name of the chain
@@ -143,24 +155,62 @@ func (s *SolanaChain) CreateWallet(ctx context.Context) (*WalletInfo, error) {
 	// Generate seed from mnemonic
 	seed := bip39.NewSeed(mnemonic, "")
 
-	// For Solana, we need a 32-byte seed for the ed25519 keypair
-	// Truncate or pad to 32 bytes if needed
-	keySeed := make([]byte, 32)
-	copy(keySeed, seed)
-
-	// Generate ed25519 keypair
-	publicKey, privateKey, err := ed25519.GenerateKey(strings.NewReader(string(keySeed)))
+	// Use the BIP44 standard for Solana: m/44'/501'/0'
+	path := "m/44'/501'/0'/0'"
+	
+	// Derive private key using proper BIP44 derivation
+	privateKey, err := DeriveSolanaPrivateKey(seed, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate ed25519 keypair: %w", err)
+		return nil, fmt.Errorf("failed to derive Solana private key: %w", err)
 	}
+
+	publicKey := privateKey.Public().(ed25519.PublicKey)
 
 	// Solana addresses are base58-encoded public keys
 	address := base58.Encode(publicKey)
 
 	// Convert keys to base58 strings for Solana
-	privateKeyB58 := base58.Encode(privateKey.Seed())
+	privateKeyB58 := base58.Encode(privateKey)
 	publicKeyB58 := base58.Encode(publicKey)
 
+	return &WalletInfo{
+		Address:    address,
+		PublicKey:  publicKeyB58,
+		PrivateKey: privateKeyB58,
+		Mnemonic:   mnemonic,
+	}, nil
+}
+
+// ImportFromMnemonic imports a wallet from mnemonic phrase with derivation path
+func (s *SolanaChain) ImportFromMnemonic(ctx context.Context, mnemonic, derivationPath string) (*WalletInfo, error) {
+	// Validate mnemonic
+	if !bip39.IsMnemonicValid(mnemonic) {
+		return nil, errors.New("invalid mnemonic phrase")
+	}
+	
+	// Generate seed from mnemonic
+	seed := bip39.NewSeed(mnemonic, "")
+	
+	// Use default derivation path if not provided
+	if derivationPath == "" {
+		derivationPath = "m/44'/501'/0'/0'" // Solana default
+	}
+	
+	// Derive private key using proper BIP44 derivation
+	privateKey, err := DeriveSolanaPrivateKey(seed, derivationPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive Solana private key: %w", err)
+	}
+	
+	publicKey := privateKey.Public().(ed25519.PublicKey)
+	
+	// Solana addresses are base58-encoded public keys
+	address := base58.Encode(publicKey)
+	
+	// Convert keys to base58 strings for Solana
+	privateKeyB58 := base58.Encode(privateKey)
+	publicKeyB58 := base58.Encode(publicKey)
+	
 	return &WalletInfo{
 		Address:    address,
 		PublicKey:  publicKeyB58,

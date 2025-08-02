@@ -2,7 +2,7 @@
 
 # Configuration
 BINARY_NAME=algonius-wallet-host
-MANIFEST_NAME=com.algonius.wallet.json
+MANIFEST_NAME=ai.algonius.wallet.json
 PKG_PATH=./cmd
 INSTALL_DIR=/usr/local/bin
 MANIFEST_DIR=/etc/opt/chrome/native-messaging-hosts
@@ -55,20 +55,12 @@ clean:
 	rm -f $(INSTALL_DIR)/$(BINARY_NAME)
 	rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 
-install: build
-	@echo "Killing any existing instances..."
-	@-./bin/$(BINARY_NAME) -kill 2>/dev/null || true
+install: build kill
 	@echo "Installing native host to $(HOME)/.algonius-wallet/bin/algonius-wallet-host ..."
 	mkdir -p $(HOME)/.algonius-wallet/bin
 	cp ./bin/$(BINARY_NAME) $(HOME)/.algonius-wallet/bin/algonius-wallet-host
 	chmod 755 $(HOME)/.algonius-wallet/bin/algonius-wallet-host
 
-	# Install manifest file
-	@echo "Installing manifest file..."
-	mkdir -p $(HOME)/.algonius-wallet
-	# Create manifest with correct path
-	sed "s|/Users/\$(USER)|$(HOME)|g" ./$(MANIFEST_NAME) > $(HOME)/.algonius-wallet/$(MANIFEST_NAME)
-	
 	# Optionally create configuration directory
 	mkdir -p $(HOME)/.algonius-wallet
 	chmod 700 $(HOME)/.algonius-wallet
@@ -85,7 +77,25 @@ uninstall:
 
 kill:
 	@echo "Killing any running instances of algonius-wallet-host..."
-	@-pkill -f algonius-wallet-host 2>/dev/null || true
+	@-pkill -f "algonius-wallet-host" 2>/dev/null || true
+	@-pkill -f "\.algonius-wallet/bin/algonius-wallet-host" 2>/dev/null || true
+	@-killall algonius-wallet-host 2>/dev/null || true
+	@echo "Killing processes on port 9444..."
+	@-lsof -ti:9444 | xargs kill -9 2>/dev/null || true
+	@sleep 2
+	@echo "Force killing any remaining instances..."
+	@-pgrep -f "algonius-wallet-host" | while read pid; do \
+		echo "Force killing process: $$pid"; \
+		kill -9 $$pid 2>/dev/null || true; \
+	done
+	@sleep 1
+	@remaining=$$(pgrep -f "algonius-wallet-host" 2>/dev/null | wc -l | tr -d ' '); \
+	if [ "$$remaining" -gt 0 ]; then \
+		echo "Warning: $$remaining processes may remain in zombie state (normal after Chrome extension usage)"; \
+		echo "These will be automatically cleaned up by the system when Chrome exits"; \
+	else \
+		echo "All processes successfully terminated"; \
+	fi
 	@echo "Done."
 
 help:
@@ -100,6 +110,6 @@ help:
 	@echo "  run                       - Run the native host"
 	@echo "  install                   - Install the native host"
 	@echo "  uninstall                 - Uninstall the native host"
-	@echo "  kill                      - Kill any running instances"
+	@echo "  kill                      - Kill all running instances and port 9444 processes"
 	@echo "  clean                     - Clean build artifacts"
 	@echo "  help                      - Show this help"

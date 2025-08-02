@@ -30,6 +30,13 @@ const CHAIN_OPTIONS: ChainOption[] = [
     description: 'Binance Smart Chain',
     icon: 'B',
     color: 'bg-yellow-500'
+  },
+  {
+    id: 'solana',
+    name: 'Solana',
+    description: 'Solana mainnet',
+    icon: '◎',
+    color: 'bg-purple-500'
   }
 ];
 

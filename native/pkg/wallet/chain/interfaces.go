@@ -30,6 +30,9 @@ type TransactionConfirmation struct {
 type IChain interface {
 	// CreateWallet generates a new wallet for the chain
 	CreateWallet(ctx context.Context) (*WalletInfo, error)
+	
+	// ImportFromMnemonic imports a wallet from mnemonic phrase
+	ImportFromMnemonic(ctx context.Context, mnemonic, derivationPath string) (*WalletInfo, error)
 
 	// GetBalance retrieves the balance for an address
 	GetBalance(ctx context.Context, address string, token string) (string, error)
@@ -42,6 +45,9 @@ type IChain interface {
 
 	// ConfirmTransaction checks the confirmation status of a transaction
 	ConfirmTransaction(ctx context.Context, txHash string, requiredConfirmations uint64) (*TransactionConfirmation, error)
+
+	// SignMessage signs a message using the private key
+	SignMessage(privateKeyHex, message string) (string, error)
 
 	// GetChainName returns the name of the chain
 	GetChainName() string

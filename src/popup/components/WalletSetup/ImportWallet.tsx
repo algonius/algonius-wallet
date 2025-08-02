@@ -74,12 +74,7 @@ export const ImportWallet: React.FC<ImportWalletProps> = ({
     }
 
     await importExistingWallet(password);
-
-    // Call onComplete if wallet import was successful
-    if (onComplete && state.step === 'success') {
-      onComplete();
-    }
-  }, [importExistingWallet, password, isPasswordValid, onComplete, state.step]);
+  }, [importExistingWallet, password, isPasswordValid]);
 
   const handleCancel = useCallback(() => {
     resetState();

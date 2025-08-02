@@ -18,11 +18,6 @@ func ValidateMnemonic(mnemonic string) error {
 	// Normalize the mnemonic (trim spaces, lowercase)
 	normalizedMnemonic := strings.TrimSpace(strings.ToLower(mnemonic))
 	
-	// Check if the mnemonic is valid according to BIP39
-	if !bip39.IsMnemonicValid(normalizedMnemonic) {
-		return errors.New("invalid mnemonic phrase")
-	}
-
 	// Check word count (BIP39 supports 12, 15, 18, 21, 24 words)
 	words := strings.Fields(normalizedMnemonic)
 	wordCount := len(words)
@@ -38,6 +33,11 @@ func ValidateMnemonic(mnemonic string) error {
 	
 	if !isValidCount {
 		return fmt.Errorf("invalid mnemonic word count: %d (must be 12, 15, 18, 21, or 24 words)", wordCount)
+	}
+
+	// Check if the mnemonic is valid according to BIP39
+	if !bip39.IsMnemonicValid(normalizedMnemonic) {
+		return errors.New("invalid mnemonic phrase")
 	}
 
 	return nil
@@ -68,14 +68,14 @@ func ValidateChain(chain string) error {
 	// Normalize chain name
 	normalizedChain := strings.ToLower(strings.TrimSpace(chain))
 	
-	supportedChains := []string{"ethereum", "eth", "bsc", "binance"}
+	supportedChains := []string{"ethereum", "eth", "bsc", "binance", "solana", "sol"}
 	for _, supported := range supportedChains {
 		if normalizedChain == supported {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("unsupported chain: %s (supported: ethereum, bsc)", chain)
+	return fmt.Errorf("unsupported chain: %s (supported: ethereum, bsc, solana)", chain)
 }
 
 // NormalizeChain normalizes chain names to standard format
@@ -87,6 +87,8 @@ func NormalizeChain(chain string) string {
 		return "ethereum"
 	case "bsc", "binance":
 		return "bsc"
+	case "sol", "solana":
+		return "solana"
 	default:
 		return normalizedChain
 	}

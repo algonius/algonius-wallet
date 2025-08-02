@@ -267,13 +267,9 @@ func (t *ApproveTransactionTool) executeSolanaTransaction(ctx context.Context, t
 		t.logger.Warn("Failed to register DEX providers, continuing with basic functionality", zap.Error(err))
 	}
 	
-	// Create Solana chain with full configuration and broadcast manager
-	solanaChain, err := chain.NewSolanaChain(dexAggregator, t.logger)
-	if err != nil {
-		t.logger.Error("Failed to create enhanced Solana chain", zap.Error(err))
-		// Fallback to simulation if chain creation fails
-		return t.executeSimulatedSolanaTransaction(ctx, tx)
-	}
+	// Create Solana chain with legacy version (no configuration available here)
+	solanaChain := chain.NewSolanaChainLegacy()
+	t.logger.Info("Using legacy Solana chain for transaction approval")
 	
 	// Step 2: Load private key securely from wallet manager
 	// Note: In a real implementation, this would load the actual private key

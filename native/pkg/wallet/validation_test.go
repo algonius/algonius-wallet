@@ -51,6 +51,16 @@ func TestValidateMnemonic(t *testing.T) {
 			mnemonic:  "Abandon Abandon abandon ABANDON abandon abandon abandon abandon abandon abandon abandon about",
 			expectErr: false,
 		},
+		{
+			name:      "mnemonic with duplicate words (BIP39 compliant)",
+			mnemonic:  "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+			expectErr: false,
+		},
+		{
+			name:      "mnemonic with all same words but valid checksum",
+			mnemonic:  "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+			expectErr: false,
+		},
 	}
 
 	for _, tt := range tests {

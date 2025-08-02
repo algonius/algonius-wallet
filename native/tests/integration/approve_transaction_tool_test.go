@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/algonius/algonius-wallet/native/tests/integration/env"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -169,6 +170,40 @@ func TestApproveTransactionToolNativeMessagingIntegration(t *testing.T) {
 	nativeMsg := testEnv.GetNativeMsg()
 	require.NotNil(t, nativeMsg, "Native messaging should not be nil")
 	
+	// Import and unlock a wallet first
+	importParams := map[string]interface{}{
+		"mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+		"password": "test_password_123",
+		"chain":    "ethereum",
+	}
+	
+	importResponse, err := nativeMsg.RpcRequest(ctx, "import_wallet", importParams)
+	require.NoError(t, err, "failed to import wallet")
+	require.NotNil(t, importResponse, "import wallet response should not be nil")
+	require.NotContains(t, importResponse, "error", "import wallet should not return error")
+	require.Contains(t, importResponse, "result", "import wallet should return result")
+	
+	// Extract the address from the import response
+	importResult, ok := importResponse["result"].(map[string]interface{})
+	require.True(t, ok, "import result should be a map")
+	importedAddress, ok := importResult["address"].(string)
+	require.True(t, ok, "address should be a string")
+	require.NotEmpty(t, importedAddress, "address should not be empty")
+	
+	// Wait a moment for wallet to be saved
+	time.Sleep(100 * time.Millisecond)
+	
+	// Unlock the wallet
+	unlockParams := map[string]interface{}{
+		"password": "test_password_123",
+	}
+	
+	unlockResponse, err := nativeMsg.RpcRequest(ctx, "unlock_wallet", unlockParams)
+	require.NoError(t, err, "failed to unlock wallet")
+	require.NotNil(t, unlockResponse, "unlock wallet response should not be nil")
+	require.NotContains(t, unlockResponse, "error", "unlock wallet should not return error")
+	require.Contains(t, unlockResponse, "result", "unlock wallet should return result")
+	
 	mcpClient := testEnv.GetMcpClient()
 	require.NotNil(t, mcpClient, "MCP client should not be nil")
 	require.NoError(t, mcpClient.Initialize(ctx), "failed to initialize MCP client")
@@ -178,7 +213,7 @@ func TestApproveTransactionToolNativeMessagingIntegration(t *testing.T) {
 		"method": "eth_sendTransaction",
 		"params": []map[string]any{
 			{
-				"from":     "0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+				"from":     importedAddress,  // Use the imported address
 				"to":       "0x8ba1f109551bD432803012645Hac136c22C4F9B",
 				"value":    "0x16345785d8a0000", // 0.1 ETH in wei
 				"gas":      "0x5208",             // 21000
@@ -215,7 +250,7 @@ func TestApproveTransactionToolNativeMessagingIntegration(t *testing.T) {
 		"method": "personal_sign", 
 		"params": []string{
 			"Hello, this is a test message to sign!",
-			"0x742d35Cc6634C0532925a3b8D4C2B79C2b86A7A8",
+			importedAddress,  // Use the imported address
 		},
 		"origin": "https://app.ens.domains",
 	}

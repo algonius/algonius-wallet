@@ -3,6 +3,9 @@
   "name": "Algonius Wallet",
   "version": "1.0.0",
   "description": "Algonius Wallet - MCP-controlled multi-chain trading wallet with Native Host integration",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
 
   "permissions": [
     "storage",
@@ -38,7 +41,7 @@
         "https://*.uniswap.org/*",
         "https://*.1inch.io/*"
       ],
-      "js": ["content/injected.js"],
+      "js": ["content/content.js"],
       "run_at": "document_start",
       "all_frames": true
     }
@@ -64,7 +67,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["content/injected.js", "providers/wallet-provider.js"],
+      "resources": ["providers/wallet-provider.js"],
       "matches": ["<all_urls>"]
     }
   ],
