@@ -15,6 +15,7 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/algonius/algonius-wallet/native/pkg/security"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
+	"github.com/mr-tron/base58"
 	"go.uber.org/zap"
 )
 
@@ -1159,14 +1160,31 @@ func (wm *WalletManager) SignMessage(ctx context.Context, address, message strin
 		return "", errors.New("address does not match current wallet")
 	}
 	
-	// Get chain implementation for Ethereum (since personal_sign is typically used with Ethereum)
-	ethChain, err := wm.chainFactory.GetChain("ethereum")
+	// Determine which chain to use based on the address format
+	// For now, we'll use a simple heuristic:
+	// - If address starts with "0x", it's likely Ethereum
+	// - Otherwise, assume it's Solana (base58 encoded)
+	var chainName string
+	if strings.HasPrefix(address, "0x") {
+		chainName = "ethereum"
+	} else {
+		// Try to decode as base58 to verify it's a valid Solana address
+		if _, err := base58.Decode(address); err == nil {
+			chainName = "solana"
+		} else {
+			// Default to Ethereum if we can't determine
+			chainName = "ethereum"
+		}
+	}
+	
+	// Get chain implementation
+	chainImpl, err := wm.chainFactory.GetChain(chainName)
 	if err != nil {
-		return "", fmt.Errorf("ethereum chain not supported: %w", err)
+		return "", fmt.Errorf("%s chain not supported: %w", chainName, err)
 	}
 	
 	// Sign the message using the chain implementation
-	signature, err = ethChain.SignMessage(wm.currentWalletData.PrivateKey, message)
+	signature, err = chainImpl.SignMessage(wm.currentWalletData.PrivateKey, message)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign message: %w", err)
 	}

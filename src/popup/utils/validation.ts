@@ -1,21 +1,10 @@
 // Validation utilities for wallet operations
 
 import { PasswordRequirements, MnemonicValidation } from '../types/wallet';
+import * as bip39 from 'bip39';
 
-// BIP39 word list (simplified version for validation)
-// In production, this should be imported from a complete BIP39 library
-const BIP39_WORDS = [
-  'abandon', 'ability', 'able', 'about', 'above', 'absent', 'absorb', 'abstract',
-  'absurd', 'abuse', 'access', 'accident', 'account', 'accuse', 'achieve', 'acid',
-  'acoustic', 'acquire', 'across', 'act', 'action', 'actor', 'actress', 'actual',
-  'adapt', 'add', 'addict', 'address', 'adjust', 'admit', 'adult', 'advance',
-  'advice', 'aerobic', 'affair', 'afford', 'afraid', 'again', 'age', 'agent',
-  'agree', 'ahead', 'aim', 'air', 'airport', 'aisle', 'alarm', 'album',
-  'alcohol', 'alert', 'alien', 'all', 'alley', 'allow', 'almost', 'alone',
-  'alpha', 'already', 'also', 'alter', 'always', 'amateur', 'amazing', 'among',
-  // ... This is just a sample. In production, use a complete BIP39 word list
-  'zone', 'zoo'
-];
+// Complete BIP39 word list for validation
+// Using the bip39 library for accurate validation
 
 /**
  * Validates password strength according to security requirements
@@ -52,8 +41,8 @@ export function validateMnemonic(mnemonic: string): MnemonicValidation {
     errors.push('Mnemonic must be 12 or 24 words');
   }
 
-  // Check if all words are valid BIP39 words
-  const invalidWords = words.filter(word => !BIP39_WORDS.includes(word));
+  // Check if all words are valid BIP39 words using the complete word list
+  const invalidWords = words.filter(word => !bip39.wordlists.EN.includes(word));
   if (invalidWords.length > 0) {
     errors.push(`Invalid words: ${invalidWords.join(', ')}`);
   }

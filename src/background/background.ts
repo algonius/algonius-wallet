@@ -187,6 +187,10 @@ async function handleWeb3Request(
       return;
     }
 
+    // Extract chain information if provided
+    const chain = (request as { chain?: string }).chain || 'ethereum';
+    console.log(`Processing ${chain} request`);
+
     // Forward the request to MCP Host via RPC
     console.log('Forwarding request to MCP Host');
     const response = await mcpHostManager.rpcRequest({
@@ -194,7 +198,8 @@ async function handleWeb3Request(
       params: {
         method: (request as { method: string }).method,
         params: (request as { params?: unknown }).params,
-        origin: sender.tab?.url
+        origin: sender.tab?.url,
+        chain: chain // Include chain information
       }
     });
     
