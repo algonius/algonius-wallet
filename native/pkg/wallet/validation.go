@@ -68,14 +68,14 @@ func ValidateChain(chain string) error {
 	// Normalize chain name
 	normalizedChain := strings.ToLower(strings.TrimSpace(chain))
 	
-	supportedChains := []string{"ethereum", "eth", "bsc", "binance"}
+	supportedChains := []string{"ethereum", "eth", "bsc", "binance", "solana", "sol"}
 	for _, supported := range supportedChains {
 		if normalizedChain == supported {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("unsupported chain: %s (supported: ethereum, bsc)", chain)
+	return fmt.Errorf("unsupported chain: %s (supported: ethereum, bsc, solana)", chain)
 }
 
 // NormalizeChain normalizes chain names to standard format
@@ -87,6 +87,8 @@ func NormalizeChain(chain string) string {
 		return "ethereum"
 	case "bsc", "binance":
 		return "bsc"
+	case "sol", "solana":
+		return "solana"
 	default:
 		return normalizedChain
 	}
