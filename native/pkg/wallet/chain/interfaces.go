@@ -46,6 +46,9 @@ type IChain interface {
 	// ConfirmTransaction checks the confirmation status of a transaction
 	ConfirmTransaction(ctx context.Context, txHash string, requiredConfirmations uint64) (*TransactionConfirmation, error)
 
+	// SignMessage signs a message using the private key
+	SignMessage(privateKeyHex, message string) (string, error)
+
 	// GetChainName returns the name of the chain
 	GetChainName() string
 }

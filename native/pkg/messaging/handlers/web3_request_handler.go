@@ -211,7 +211,7 @@ func handleSendTransaction(id string, params Web3RequestParams, manager wallet.I
 // handlePersonalSign handles personal_sign requests from web pages
 func handlePersonalSign(id string, params Web3RequestParams, manager wallet.IWalletManager, broadcaster *event.EventBroadcaster) (messaging.RpcResponse, error) {
 	// Parse signing parameters
-	var signParams []string
+	var signParams []interface{}
 	paramsBytes, err := json.Marshal(params.Params)
 	if err != nil {
 		return messaging.RpcResponse{
@@ -243,60 +243,63 @@ func handlePersonalSign(id string, params Web3RequestParams, manager wallet.IWal
 		}, nil
 	}
 	
-	message := signParams[0]
-	address := signParams[1]
-
-	// Create pending signature request
-	ctx := context.Background()
-	pendingSig := &wallet.PendingTransaction{
-		Hash:                      generateTransactionHash(), // Generate temporary hash for signature request
-		Chain:                     "ethereum",
-		From:                      address,
-		To:                        address, // For signing, from and to are the same
-		Amount:                    "0",
-		Token:                     "ETH",
-		Type:                      "sign_message",
-		Status:                    "pending",
-		Confirmations:             0,
-		RequiredConfirmations:     1,
-		GasFee:                    "0",
-		Priority:                  "high",
-		EstimatedConfirmationTime: "immediate",
-		SubmittedAt:               time.Now(),
-		LastChecked:               time.Now(),
-	}
-
-	// Store the message to be signed in the details
-	pendingSig.RejectionDetails = message // Reuse this field for message content
-
-	// Add signature request to pending queue
-	if err := manager.AddPendingTransaction(ctx, pendingSig); err != nil {
+	// Extract message and address
+	var message string
+	var address string
+	
+	// Handle different parameter types for the message
+	switch msg := signParams[0].(type) {
+	case string:
+		message = msg
+	case []byte:
+		message = string(msg)
+	case []interface{}:
+		// Convert byte array to string
+		byteArray := make([]byte, len(msg))
+		for i, v := range msg {
+			if val, ok := v.(float64); ok {
+				byteArray[i] = byte(val)
+			}
+		}
+		message = string(byteArray)
+	default:
 		return messaging.RpcResponse{
 			ID: id,
 			Error: &messaging.ErrorInfo{
-				Code:    -32000,
-				Message: "Failed to add pending signature request: " + err.Error(),
+				Code:    -32602,
+				Message: "Invalid message format",
+			},
+		}, nil
+	}
+	
+	// Handle address parameter
+	if addr, ok := signParams[1].(string); ok {
+		address = addr
+	} else {
+		return messaging.RpcResponse{
+			ID: id,
+			Error: &messaging.ErrorInfo{
+				Code:    -32602,
+				Message: "Invalid address format",
 			},
 		}, nil
 	}
 
-	// Broadcast signature confirmation needed event to AI Agent
-	if broadcaster != nil {
-		event := &event.Event{
-			Type: "signature_confirmation_needed",
-			Data: map[string]interface{}{
-				"request_hash": pendingSig.Hash,
-				"address":      address,
-				"message":      message,
-				"origin":       params.Origin,
-				"submitted_at": pendingSig.SubmittedAt.Format(time.RFC3339),
+	// Sign the message using the wallet manager
+	ctx := context.Background()
+	signature, err := manager.SignMessage(ctx, address, message)
+	if err != nil {
+		return messaging.RpcResponse{
+			ID: id,
+			Error: &messaging.ErrorInfo{
+				Code:    -32000,
+				Message: "Failed to sign message: " + err.Error(),
 			},
-		}
-		broadcaster.Broadcast(event)
+		}, nil
 	}
 
-	// Return the pending signature request hash
-	result, _ := json.Marshal(pendingSig.Hash)
+	// Return the signature
+	result, _ := json.Marshal(signature)
 	return messaging.RpcResponse{
 		ID:     id,
 		Result: result,

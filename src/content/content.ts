@@ -43,12 +43,24 @@ if (shouldInject) {
         }, 
         (response) => {
           console.log('Content script received response from background:', response);
+          
+          // Properly handle error in the response
+          let error = undefined;
+          if (response && typeof response === 'object' && response.error) {
+            // If error is an object, try to stringify it for better debugging
+            if (typeof response.error === 'object') {
+              error = JSON.stringify(response.error);
+            } else {
+              error = response.error;
+            }
+          }
+          
           // Send the response back to the page
           window.postMessage({
             type: "ALGONIUS_WALLET_RESPONSE",
             id: request.id,
             result: response?.result,
-            error: response?.error
+            error: error
           }, window.location.origin);
         }
       );

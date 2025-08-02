@@ -137,7 +137,11 @@ async function handleNativeRpc(
     
     if (response.error) {
       console.log('❌ RPC Error:', response.error);
-      sendResponse({ error: response.error });
+      // Properly format the error for transmission
+      const formattedError = typeof response.error === 'object' 
+        ? JSON.stringify(response.error) 
+        : response.error;
+      sendResponse({ error: formattedError });
     } else {
       console.log('✅ RPC Success:', method, 'Response:', response.result);
       sendResponse({ result: response.result });
@@ -195,15 +199,24 @@ async function handleWeb3Request(
     });
     
     console.log('Web3 request response from MCP Host:', response);
-    // 确保响应格式正确
-    sendResponse({
-      result: response.result,
-      error: response.error
-    });
+    
+    // Properly format response for transmission
+    if (response.error) {
+      const formattedError = typeof response.error === 'object' 
+        ? JSON.stringify(response.error) 
+        : response.error;
+      sendResponse({ error: formattedError });
+    } else {
+      sendResponse({
+        result: response.result,
+        error: response.error
+      });
+    }
   } catch (error) {
     console.error('Web3 request failed:', error);
+    const formattedError = error instanceof Error ? error.message : String(error);
     sendResponse({ 
-      error: error instanceof Error ? error.message : String(error) 
+      error: formattedError
     });
   }
 }

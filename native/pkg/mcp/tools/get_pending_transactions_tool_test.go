@@ -11,75 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockWalletManager is a mock implementation of wallet.IWalletManager for testing
-type MockWalletManager struct{}
-
-func (m *MockWalletManager) CreateWallet(ctx context.Context, chain string, password string) (address string, publicKey string, mnemonic string, err error) {
-	return "0x123", "0x456", "", nil
-}
-
-func (m *MockWalletManager) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error) {
-	return "0x123", "0x456", 1234567890, nil
-}
-
-func (m *MockWalletManager) GetBalance(ctx context.Context, address, token string) (string, error) {
-	return "0", nil
-}
-
-func (m *MockWalletManager) GetStatus(ctx context.Context) (*wallet.WalletStatus, error) {
-	return nil, nil
-}
-
-func (m *MockWalletManager) SendTransaction(ctx context.Context, chain, from, to, amount, token string) (string, error) {
-	return "0xmockhash", nil
-}
-
-func (m *MockWalletManager) EstimateGas(ctx context.Context, chain, from, to, amount, token string) (uint64, string, error) {
-	return 21000, "20", nil
-}
-
-func (m *MockWalletManager) GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*wallet.PendingTransaction, error) {
-	return []*wallet.PendingTransaction{}, nil
-}
-
-func (m *MockWalletManager) RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]wallet.TransactionRejectionResult, error) {
-	return []wallet.TransactionRejectionResult{}, nil
-}
-
-func (m *MockWalletManager) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
-	return []*wallet.HistoricalTransaction{}, nil
-}
-
-func (m *MockWalletManager) GetAccounts(ctx context.Context) ([]string, error) {
-	return []string{}, nil
-}
-
-func (m *MockWalletManager) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
-	return nil
-}
-
-func (m *MockWalletManager) UnlockWallet(password string) error {
-	return nil
-}
-
-func (m *MockWalletManager) LockWallet() {
-}
-
-func (m *MockWalletManager) IsUnlocked() bool {
-	return true
-}
-
-func (m *MockWalletManager) HasWallet() bool {
-	return true
-}
-
-func (m *MockWalletManager) GetCurrentWallet() *wallet.WalletStatus {
-	return &wallet.WalletStatus{}
-}
-
 // MockWalletManagerWithTransactions extends MockWalletManager to include mock transactions
 type MockWalletManagerWithTransactions struct {
-	MockWalletManager
+	*wallet.MockWalletManager
 	mockTransactions []*wallet.PendingTransaction
 }
 
@@ -92,7 +26,7 @@ func (m *MockWalletManagerWithTransactions) AddPendingTransaction(ctx context.Co
 }
 
 func TestGetPendingTransactionsToolMeta(t *testing.T) {
-	mockManager := &MockWalletManager{}
+	mockManager := &wallet.MockWalletManager{}
 	tool := NewGetPendingTransactionsTool(mockManager)
 
 	meta := tool.GetMeta()
@@ -109,7 +43,7 @@ func TestGetPendingTransactionsToolMeta(t *testing.T) {
 }
 
 func TestGetPendingTransactionsToolCreation(t *testing.T) {
-	mockManager := &MockWalletManager{}
+	mockManager := &wallet.MockWalletManager{}
 	tool := NewGetPendingTransactionsTool(mockManager)
 
 	require.NotNil(t, tool)
@@ -147,7 +81,8 @@ func TestGetPendingTransactionsToolHandler_Success(t *testing.T) {
 	}
 
 	mockManager := &MockWalletManagerWithTransactions{
-		mockTransactions: mockTransactions,
+		MockWalletManager: &wallet.MockWalletManager{},
+		mockTransactions:  mockTransactions,
 	}
 
 	tool := NewGetPendingTransactionsTool(mockManager)
@@ -186,7 +121,8 @@ func TestGetPendingTransactionsToolHandler_Success(t *testing.T) {
 
 func TestGetPendingTransactionsToolHandler_NoTransactions(t *testing.T) {
 	mockManager := &MockWalletManagerWithTransactions{
-		mockTransactions: []*wallet.PendingTransaction{},
+		MockWalletManager: &wallet.MockWalletManager{},
+		mockTransactions:  []*wallet.PendingTransaction{},
 	}
 
 	tool := NewGetPendingTransactionsTool(mockManager)

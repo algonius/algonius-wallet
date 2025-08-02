@@ -8,16 +8,14 @@ import (
 
 	"github.com/algonius/algonius-wallet/native/pkg/messaging"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
+	"github.com/stretchr/testify/mock"
 )
 
 // MockWalletManagerForImport is a mock implementation for testing import_wallet
 type MockWalletManagerForImport struct {
+	*wallet.MockWalletManager
 	ShouldFail    bool
 	FailureReason string
-}
-
-func (m *MockWalletManagerForImport) CreateWallet(ctx context.Context, chain string, password string) (address string, publicKey string, mnemonic string, err error) {
-	return "0x123", "0x456", "", nil
 }
 
 func (m *MockWalletManagerForImport) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error) {
@@ -25,61 +23,6 @@ func (m *MockWalletManagerForImport) ImportWallet(ctx context.Context, mnemonic,
 		return "", "", 0, &ImportError{Reason: m.FailureReason}
 	}
 	return "0x1234567890abcdef1234567890abcdef12345678", "0x04abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", 1234567890, nil
-}
-
-func (m *MockWalletManagerForImport) GetBalance(ctx context.Context, address, token string) (string, error) {
-	return "0", nil
-}
-
-func (m *MockWalletManagerForImport) GetStatus(ctx context.Context) (*wallet.WalletStatus, error) {
-	return nil, nil
-}
-
-func (m *MockWalletManagerForImport) SendTransaction(ctx context.Context, chain, from, to, amount, token string) (string, error) {
-	return "0xmockhash", nil
-}
-
-func (m *MockWalletManagerForImport) EstimateGas(ctx context.Context, chain, from, to, amount, token string) (uint64, string, error) {
-	return 21000, "20", nil
-}
-
-func (m *MockWalletManagerForImport) GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*wallet.PendingTransaction, error) {
-	return []*wallet.PendingTransaction{}, nil
-}
-
-func (m *MockWalletManagerForImport) RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]wallet.TransactionRejectionResult, error) {
-	return []wallet.TransactionRejectionResult{}, nil
-}
-
-func (m *MockWalletManagerForImport) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
-	return []*wallet.HistoricalTransaction{}, nil
-}
-
-func (m *MockWalletManagerForImport) GetAccounts(ctx context.Context) ([]string, error) {
-	return []string{}, nil
-}
-
-func (m *MockWalletManagerForImport) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
-	return nil
-}
-
-func (m *MockWalletManagerForImport) UnlockWallet(password string) error {
-	return nil
-}
-
-func (m *MockWalletManagerForImport) LockWallet() {
-}
-
-func (m *MockWalletManagerForImport) IsUnlocked() bool {
-	return true
-}
-
-func (m *MockWalletManagerForImport) HasWallet() bool {
-	return true
-}
-
-func (m *MockWalletManagerForImport) GetCurrentWallet() *wallet.WalletStatus {
-	return &wallet.WalletStatus{}
 }
 
 // ImportError helps simulate specific error types
@@ -92,8 +35,17 @@ func (e *ImportError) Error() string {
 }
 
 func TestCreateImportWalletHandler_Success(t *testing.T) {
-	mockManager := &MockWalletManagerForImport{}
-	handler := CreateImportWalletHandler(mockManager)
+	mockWalletManager := &wallet.MockWalletManager{}
+	
+	// Set up expectations for the mock
+	mockWalletManager.On("ImportWallet", mock.Anything, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", "password123", "ethereum", "").Return(
+		"0x1234567890abcdef1234567890abcdef12345678",
+		"0x04abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+		int64(1234567890),
+		nil,
+	)
+	
+	handler := CreateImportWalletHandler(mockWalletManager)
 
 	params := ImportWalletParams{
 		Mnemonic: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
@@ -139,10 +91,16 @@ func TestCreateImportWalletHandler_Success(t *testing.T) {
 	if result.ImportedAt == 0 {
 		t.Error("Expected imported timestamp but got 0")
 	}
+	
+	// Assert that the expectations were met
+	mockWalletManager.AssertExpectations(t)
 }
 
 func TestCreateImportWalletHandler_MissingParameters(t *testing.T) {
-	mockManager := &MockWalletManagerForImport{}
+	mockWalletManager := &wallet.MockWalletManager{}
+	mockManager := &MockWalletManagerForImport{
+		MockWalletManager: mockWalletManager,
+	}
 	handler := CreateImportWalletHandler(mockManager)
 
 	tests := []struct {
@@ -206,7 +164,10 @@ func TestCreateImportWalletHandler_MissingParameters(t *testing.T) {
 }
 
 func TestCreateImportWalletHandler_InvalidJson(t *testing.T) {
-	mockManager := &MockWalletManagerForImport{}
+	mockWalletManager := &wallet.MockWalletManager{}
+	mockManager := &MockWalletManagerForImport{
+		MockWalletManager: mockWalletManager,
+	}
 	handler := CreateImportWalletHandler(mockManager)
 
 	request := messaging.RpcRequest{
@@ -269,9 +230,11 @@ func TestCreateImportWalletHandler_WalletManagerErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockWalletManager := &wallet.MockWalletManager{}
 			mockManager := &MockWalletManagerForImport{
-				ShouldFail:    true,
-				FailureReason: tt.failureReason,
+				MockWalletManager: mockWalletManager,
+				ShouldFail:        true,
+				FailureReason:     tt.failureReason,
 			}
 			handler := CreateImportWalletHandler(mockManager)
 
@@ -309,7 +272,10 @@ func TestCreateImportWalletHandler_WalletManagerErrors(t *testing.T) {
 }
 
 func TestCreateImportWalletHandler_NilParams(t *testing.T) {
-	mockManager := &MockWalletManagerForImport{}
+	mockWalletManager := &wallet.MockWalletManager{}
+	mockManager := &MockWalletManagerForImport{
+		MockWalletManager: mockWalletManager,
+	}
 	handler := CreateImportWalletHandler(mockManager)
 
 	request := messaging.RpcRequest{

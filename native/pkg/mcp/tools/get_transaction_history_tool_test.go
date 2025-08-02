@@ -13,40 +13,9 @@ import (
 
 // MockWalletManagerWithHistory is a mock implementation of wallet.IWalletManager for testing transaction history
 type MockWalletManagerWithHistory struct {
+	*wallet.MockWalletManager
 	mockHistoricalTransactions []*wallet.HistoricalTransaction
 	shouldReturnError          bool
-}
-
-func (m *MockWalletManagerWithHistory) CreateWallet(ctx context.Context, chain string, password string) (address string, publicKey string, mnemonic string, err error) {
-	return "0x123", "0x456", "", nil
-}
-
-func (m *MockWalletManagerWithHistory) ImportWallet(ctx context.Context, mnemonic, password, chainName, derivationPath string) (address string, publicKey string, importedAt int64, err error) {
-	return "0x123", "0x456", 1234567890, nil
-}
-
-func (m *MockWalletManagerWithHistory) GetBalance(ctx context.Context, address, token string) (string, error) {
-	return "0", nil
-}
-
-func (m *MockWalletManagerWithHistory) GetStatus(ctx context.Context) (*wallet.WalletStatus, error) {
-	return nil, nil
-}
-
-func (m *MockWalletManagerWithHistory) SendTransaction(ctx context.Context, chain, from, to, amount, token string) (string, error) {
-	return "0xmockhash", nil
-}
-
-func (m *MockWalletManagerWithHistory) EstimateGas(ctx context.Context, chain, from, to, amount, token string) (uint64, string, error) {
-	return 21000, "20", nil
-}
-
-func (m *MockWalletManagerWithHistory) GetPendingTransactions(ctx context.Context, chain, address, transactionType string, limit, offset int) ([]*wallet.PendingTransaction, error) {
-	return []*wallet.PendingTransaction{}, nil
-}
-
-func (m *MockWalletManagerWithHistory) RejectTransactions(ctx context.Context, transactionIds []string, reason, details string, notifyUser, auditLog bool) ([]wallet.TransactionRejectionResult, error) {
-	return []wallet.TransactionRejectionResult{}, nil
 }
 
 func (m *MockWalletManagerWithHistory) GetTransactionHistory(ctx context.Context, address string, fromBlock, toBlock *uint64, limit, offset int) ([]*wallet.HistoricalTransaction, error) {
@@ -56,35 +25,8 @@ func (m *MockWalletManagerWithHistory) GetTransactionHistory(ctx context.Context
 	return m.mockHistoricalTransactions, nil
 }
 
-func (m *MockWalletManagerWithHistory) GetAccounts(ctx context.Context) ([]string, error) {
-	return []string{}, nil
-}
-
-func (m *MockWalletManagerWithHistory) AddPendingTransaction(ctx context.Context, tx *wallet.PendingTransaction) error {
-	return nil
-}
-
-func (m *MockWalletManagerWithHistory) UnlockWallet(password string) error {
-	return nil
-}
-
-func (m *MockWalletManagerWithHistory) LockWallet() {
-}
-
-func (m *MockWalletManagerWithHistory) IsUnlocked() bool {
-	return true
-}
-
-func (m *MockWalletManagerWithHistory) HasWallet() bool {
-	return true
-}
-
-func (m *MockWalletManagerWithHistory) GetCurrentWallet() *wallet.WalletStatus {
-	return &wallet.WalletStatus{}
-}
-
 func TestGetTransactionHistoryToolMeta(t *testing.T) {
-	mockManager := &MockWalletManagerWithHistory{}
+	mockManager := &wallet.MockWalletManager{}
 	tool := NewGetTransactionHistoryTool(mockManager)
 
 	meta := tool.GetMeta()
@@ -104,7 +46,7 @@ func TestGetTransactionHistoryToolMeta(t *testing.T) {
 }
 
 func TestGetTransactionHistoryToolCreation(t *testing.T) {
-	mockManager := &MockWalletManagerWithHistory{}
+	mockManager := &wallet.MockWalletManager{}
 	tool := NewGetTransactionHistoryTool(mockManager)
 
 	require.NotNil(t, tool)
@@ -155,6 +97,7 @@ func TestGetTransactionHistoryToolHandler_Success(t *testing.T) {
 	}
 
 	mockManager := &MockWalletManagerWithHistory{
+		MockWalletManager:          &wallet.MockWalletManager{},
 		mockHistoricalTransactions: mockTxs,
 	}
 	tool := NewGetTransactionHistoryTool(mockManager)
@@ -197,6 +140,7 @@ func TestGetTransactionHistoryToolHandler_Success(t *testing.T) {
 
 func TestGetTransactionHistoryToolHandler_NoTransactions(t *testing.T) {
 	mockManager := &MockWalletManagerWithHistory{
+		MockWalletManager:          &wallet.MockWalletManager{},
 		mockHistoricalTransactions: []*wallet.HistoricalTransaction{},
 	}
 	tool := NewGetTransactionHistoryTool(mockManager)
@@ -232,7 +176,7 @@ func TestGetTransactionHistoryToolHandler_NoTransactions(t *testing.T) {
 }
 
 func TestGetTransactionHistoryToolHandler_MissingAddress(t *testing.T) {
-	mockManager := &MockWalletManagerWithHistory{}
+	mockManager := &wallet.MockWalletManager{}
 	tool := NewGetTransactionHistoryTool(mockManager)
 	handler := tool.GetHandler()
 
@@ -273,6 +217,7 @@ func TestGetTransactionHistoryToolHandler_WithBlockRange(t *testing.T) {
 	}
 
 	mockManager := &MockWalletManagerWithHistory{
+		MockWalletManager:          &wallet.MockWalletManager{},
 		mockHistoricalTransactions: mockTxs,
 	}
 	tool := NewGetTransactionHistoryTool(mockManager)
@@ -314,6 +259,7 @@ func TestGetTransactionHistoryToolHandler_WithBlockRange(t *testing.T) {
 
 func TestGetTransactionHistoryToolHandler_ManagerError(t *testing.T) {
 	mockManager := &MockWalletManagerWithHistory{
+		MockWalletManager:  &wallet.MockWalletManager{},
 		shouldReturnError: true,
 	}
 	tool := NewGetTransactionHistoryTool(mockManager)

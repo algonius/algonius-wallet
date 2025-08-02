@@ -1146,3 +1146,33 @@ func (wm *WalletManager) HasWallet() bool {
 func (wm *WalletManager) GetCurrentWallet() *WalletStatus {
 	return wm.currentWallet
 }
+
+// SignMessage signs a message with the private key of the specified address
+func (wm *WalletManager) SignMessage(ctx context.Context, address, message string) (signature string, err error) {
+	// Check if wallet is unlocked
+	if !wm.IsUnlocked() {
+		return "", errors.New("wallet is locked")
+	}
+	
+	// Check if the address matches the current wallet
+	if wm.currentWalletData.Address != address {
+		return "", errors.New("address does not match current wallet")
+	}
+	
+	// Get chain implementation for Ethereum (since personal_sign is typically used with Ethereum)
+	ethChain, err := wm.chainFactory.GetChain("ethereum")
+	if err != nil {
+		return "", fmt.Errorf("ethereum chain not supported: %w", err)
+	}
+	
+	// Sign the message using the chain implementation
+	signature, err = ethChain.SignMessage(wm.currentWalletData.PrivateKey, message)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign message: %w", err)
+	}
+	
+	// Log the signing event
+	// TODO: Implement proper audit logging when needed
+	
+	return signature, nil
+}
