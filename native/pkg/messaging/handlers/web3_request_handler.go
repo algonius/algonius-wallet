@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/algonius/algonius-wallet/native/pkg/event"
 	"github.com/algonius/algonius-wallet/native/pkg/messaging"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
+	"github.com/mr-tron/base58"
 )
 
 // Web3RequestParams represents the parameters for a web3 request from a web page
@@ -67,6 +69,10 @@ func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.
 		case "signMessage":
 			return handleSolanaSignMessage(req.ID, params, manager, broadcaster)
 		
+		// Solana specific methods
+		case "solana_requestAccounts":
+			return handleSolanaRequestAccounts(req.ID, manager)
+		
 		default:
 			return messaging.RpcResponse{
 				ID: req.ID,
@@ -94,7 +100,8 @@ func handleRequestAccounts(id string, manager wallet.IWalletManager) (messaging.
 		}, nil
 	}
 
-	result, _ := json.Marshal(accounts)
+	resultBytes, _ := json.Marshal(accounts)
+	result := resultBytes
 	return messaging.RpcResponse{
 		ID:     id,
 		Result: result,
@@ -335,6 +342,29 @@ func handlePersonalSign(id string, params Web3RequestParams, manager wallet.IWal
 	}, nil
 }
 
+// handleSolanaRequestAccounts handles solana_requestAccounts requests
+func handleSolanaRequestAccounts(id string, manager wallet.IWalletManager) (messaging.RpcResponse, error) {
+	// Get available accounts from wallet manager
+	ctx := context.Background()
+	accounts, err := manager.GetAccounts(ctx)
+	if err != nil {
+		return messaging.RpcResponse{
+			ID: id,
+			Error: &messaging.ErrorInfo{
+				Code:    -32000,
+				Message: "Failed to get accounts: " + err.Error(),
+			},
+		}, nil
+	}
+
+	resultBytes, _ := json.Marshal(accounts)
+	result := resultBytes
+	return messaging.RpcResponse{
+		ID:     id,
+		Result: result,
+	}, nil
+}
+
 // handleSolanaSignMessage handles signMessage requests from Solana web pages
 func handleSolanaSignMessage(id string, params Web3RequestParams, manager wallet.IWalletManager, broadcaster *event.EventBroadcaster) (messaging.RpcResponse, error) {
 	// Parse signing parameters
@@ -434,9 +464,13 @@ func handleSolanaSignMessage(id string, params Web3RequestParams, manager wallet
 	// Use the first account as the signing address
 	address := accounts[0]
 
-	// For Solana, we need to convert the message bytes to a string representation
-	// that our manager can work with
-	message := string(messageBytes)
+	// For Solana, we need to handle message signing properly:
+	// 1. For Solana, we should sign the raw bytes directly, not convert to string first
+	// 2. We need to pass additional information to the SignMessage method to indicate this is Solana signing
+	
+	// Create a special format for Solana messages that preserves the raw bytes
+	// We'll prefix the message with a special marker and then encode the bytes
+	message := "__SOLANA_RAW_BYTES__:" + string(messageBytes)
 
 	// Sign the message using the wallet manager
 	signature, err := manager.SignMessage(ctx, address, message)
@@ -451,11 +485,66 @@ func handleSolanaSignMessage(id string, params Web3RequestParams, manager wallet
 	}
 
 	// For Solana, we need to return the signature in the correct format
-	// The signature should be a base58 encoded string for Solana
-	result, _ := json.Marshal(map[string]interface{}{
-		"signature": signature,
-		"publicKey": address,
-	})
+	// The signature should be a 64-byte array for Solana (not base58 encoded string when returned to browser)
+	
+	// Validate that the signature is valid base58 and decode it to raw bytes
+	signatureBytes, err := base58.Decode(signature)
+	if err != nil {
+		// If it's not valid base58, we have an issue with our signing implementation
+		return messaging.RpcResponse{
+			ID: id,
+			Error: &messaging.ErrorInfo{
+				Code:    -32000,
+				Message: fmt.Sprintf("Invalid signature format: not valid base58: %v", err),
+			},
+		}, nil
+	}
+	
+	// Ensure the signature is exactly 64 bytes for Ed25519
+	if len(signatureBytes) != 64 {
+		return messaging.RpcResponse{
+			ID: id,
+			Error: &messaging.ErrorInfo{
+				Code:    -32000,
+				Message: fmt.Sprintf("Invalid signature length: expected 64 bytes, got %d", len(signatureBytes)),
+			},
+		}, nil
+	}
+	
+	// Ensure the public key is in the correct format for Solana (base58)
+	solanaAddress := address
+	// If the address starts with "0x", it might be stored in Ethereum format
+	// We need to make sure it's properly formatted for Solana
+	if strings.HasPrefix(address, "0x") {
+		// Just remove the "0x" prefix for now - in a real implementation we'd need proper conversion
+		solanaAddress = address[2:]
+	}
+	
+	// Make sure the public key is valid base58
+	if _, err := base58.Decode(solanaAddress); err != nil {
+		// If it's not valid base58, we have an issue with our address format
+		return messaging.RpcResponse{
+			ID: id,
+			Error: &messaging.ErrorInfo{
+				Code:    -32000,
+				Message: fmt.Sprintf("Invalid public key format: not valid base58: %v", err),
+			},
+		}, nil
+	}
+	
+	// Convert signature bytes to array for JSON serialization
+	signatureArray := make([]int, len(signatureBytes))
+	for i, b := range signatureBytes {
+		signatureArray[i] = int(b)
+	}
+	
+	// Format the result properly
+	resultData := map[string]interface{}{
+		"signature": signatureArray, // Return as array of integers for proper serialization
+		"publicKey": solanaAddress,
+	}
+	
+	result, _ := json.Marshal(resultData)
 	
 	return messaging.RpcResponse{
 		ID:     id,

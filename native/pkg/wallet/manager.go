@@ -32,10 +32,18 @@ type EncryptedWalletData struct {
 
 // DecryptedWalletData represents decrypted wallet data in memory
 type DecryptedWalletData struct {
+	Address    string            `json:"address"`
+	PublicKey  string            `json:"public_key"`
+	PrivateKey string            `json:"private_key"`
+	Mnemonic   string            `json:"mnemonic"`
+	ChainData  map[string]*ChainSpecificData `json:"chain_data,omitempty"` // Chain-specific addresses and keys
+}
+
+// ChainSpecificData holds chain-specific wallet information
+type ChainSpecificData struct {
 	Address    string `json:"address"`
 	PublicKey  string `json:"public_key"`
 	PrivateKey string `json:"private_key"`
-	Mnemonic   string `json:"mnemonic"`
 }
 
 type WalletManager struct {
@@ -158,37 +166,31 @@ func (wm *WalletManager) CreateWallet(ctx context.Context, chainName, password s
 		return "", "", "", err
 	}
 	normalizedChain := NormalizeChain(chainName)
-	wm.logger.Info("CreateWallet chain validation passed", 
-		zap.String("original_chain", chainName),
-		zap.String("normalized_chain", normalizedChain))
+	wm.logger.Info("CreateWallet chain validation passed", zap.String("normalized_chain", normalizedChain))
 
-	// Get the chain implementation
+	// Get chain implementation
 	chainImpl, err := wm.chainFactory.GetChain(normalizedChain)
 	if err != nil {
 		wm.logger.Error("CreateWallet failed to get chain implementation", 
 			zap.Error(err),
-			zap.String("normalized_chain", normalizedChain))
-		return "", "", "", err
+			zap.String("chain", normalizedChain))
+		return "", "", "", fmt.Errorf("chain not supported: %w", err)
 	}
-	wm.logger.Info("CreateWallet got chain implementation", 
-		zap.String("chain_name", chainImpl.GetChainName()))
+	wm.logger.Info("CreateWallet got chain implementation")
 
-	// Create the wallet using the chain implementation
-	wm.logger.Info("CreateWallet calling chain.CreateWallet")
+	// Create wallet using chain-specific implementation
 	walletInfo, err := chainImpl.CreateWallet(ctx)
 	if err != nil {
-		wm.logger.Error("CreateWallet chain.CreateWallet failed", 
+		wm.logger.Error("CreateWallet failed to create chain wallet", 
 			zap.Error(err),
 			zap.String("chain", normalizedChain))
-		return "", "", "", err
+		return "", "", "", fmt.Errorf("failed to create wallet: %w", err)
 	}
-	wm.logger.Info("CreateWallet chain.CreateWallet succeeded", 
+	wm.logger.Info("CreateWallet created chain wallet successfully",
 		zap.String("address", walletInfo.Address),
-		zap.String("public_key", walletInfo.PublicKey[:20]+"..."),
 		zap.Int("mnemonic_word_count", len(strings.Fields(walletInfo.Mnemonic))))
 
 	// Encrypt private key and mnemonic for storage
-	wm.logger.Info("CreateWallet starting encryption")
 	encryptedPrivateKey, err := security.EncryptWithPassword(walletInfo.PrivateKey, password)
 	if err != nil {
 		wm.logger.Error("CreateWallet private key encryption failed", 
@@ -217,6 +219,8 @@ func (wm *WalletManager) CreateWallet(ctx context.Context, chainName, password s
 	case "bsc":
 		wm.currentWallet.Chains["bsc"] = true
 		wm.currentWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	case "solana":
+		wm.currentWallet.Chains["solana"] = true
 	}
 
 	// Create encrypted wallet data structure
@@ -238,6 +242,8 @@ func (wm *WalletManager) CreateWallet(ctx context.Context, chainName, password s
 	case "bsc":
 		encryptedWallet.Chains["bsc"] = true
 		encryptedWallet.Chains["ethereum"] = true
+	case "solana":
+		encryptedWallet.Chains["solana"] = true
 	}
 	
 	// Save encrypted wallet to disk
@@ -257,7 +263,16 @@ func (wm *WalletManager) CreateWallet(ctx context.Context, chainName, password s
 		PublicKey:  walletInfo.PublicKey,
 		PrivateKey: walletInfo.PrivateKey,
 		Mnemonic:   walletInfo.Mnemonic,
+		ChainData:  make(map[string]*ChainSpecificData),
 	}
+	
+	// Add chain-specific data
+	wm.currentWalletData.ChainData[normalizedChain] = &ChainSpecificData{
+		Address:    walletInfo.Address,
+		PublicKey:  walletInfo.PublicKey,
+		PrivateKey: walletInfo.PrivateKey,
+	}
+	
 	wm.isUnlocked = true
 
 	wm.logger.Info("CreateWallet completed successfully", 
@@ -331,6 +346,8 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	case "bsc":
 		wm.currentWallet.Chains["bsc"] = true
 		wm.currentWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	case "solana":
+		wm.currentWallet.Chains["solana"] = true
 	}
 
 	// Create encrypted wallet data structure
@@ -352,6 +369,8 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	case "bsc":
 		encryptedWallet.Chains["bsc"] = true
 		encryptedWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	case "solana":
+		encryptedWallet.Chains["solana"] = true
 	}
 	
 	// Save encrypted wallet to disk
@@ -359,14 +378,34 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to save wallet: %w", err)
 	}
+
+	// Load decrypted data into memory
+	if wm.currentWalletData == nil {
+		wm.currentWalletData = &DecryptedWalletData{
+			Address:    walletInfo.Address,
+			PublicKey:  walletInfo.PublicKey,
+			PrivateKey: walletInfo.PrivateKey,
+			Mnemonic:   walletInfo.Mnemonic,
+			ChainData:  make(map[string]*ChainSpecificData),
+		}
+	} else {
+		// Update existing wallet data
+		wm.currentWalletData.Address = walletInfo.Address
+		wm.currentWalletData.PublicKey = walletInfo.PublicKey
+		wm.currentWalletData.PrivateKey = walletInfo.PrivateKey
+		wm.currentWalletData.Mnemonic = walletInfo.Mnemonic
+		if wm.currentWalletData.ChainData == nil {
+			wm.currentWalletData.ChainData = make(map[string]*ChainSpecificData)
+		}
+	}
 	
-	// Load decrypted data into memory for immediate use
-	wm.currentWalletData = &DecryptedWalletData{
+	// Add chain-specific data
+	wm.currentWalletData.ChainData[normalizedChain] = &ChainSpecificData{
 		Address:    walletInfo.Address,
 		PublicKey:  walletInfo.PublicKey,
 		PrivateKey: walletInfo.PrivateKey,
-		Mnemonic:   walletInfo.Mnemonic,
 	}
+
 	wm.isUnlocked = true
 
 	return walletInfo.Address, walletInfo.PublicKey, importTime, nil
@@ -1155,17 +1194,13 @@ func (wm *WalletManager) SignMessage(ctx context.Context, address, message strin
 		return "", errors.New("wallet is locked")
 	}
 	
-	// Check if the address matches the current wallet
-	if wm.currentWalletData.Address != address {
-		return "", errors.New("address does not match current wallet")
-	}
-	
-	// Determine which chain to use based on the address format
-	// For now, we'll use a simple heuristic:
-	// - If address starts with "0x", it's likely Ethereum
-	// - Otherwise, assume it's Solana (base58 encoded)
+	// Determine which chain to use based on the message type for Solana
+	// For Solana, we look at the message prefix
 	var chainName string
-	if strings.HasPrefix(address, "0x") {
+	if strings.HasPrefix(message, "__SOLANA_RAW_BYTES__:") {
+		chainName = "solana"
+	} else if strings.HasPrefix(address, "0x") {
+		// For Ethereum-style addresses, use Ethereum chain
 		chainName = "ethereum"
 	} else {
 		// Try to decode as base58 to verify it's a valid Solana address
@@ -1177,6 +1212,23 @@ func (wm *WalletManager) SignMessage(ctx context.Context, address, message strin
 		}
 	}
 	
+	// Get the appropriate private key for the chain
+	privateKey := wm.currentWalletData.PrivateKey
+	walletAddress := wm.currentWalletData.Address
+	
+	// If we have chain-specific data, use it
+	if wm.currentWalletData.ChainData != nil {
+		if chainData, exists := wm.currentWalletData.ChainData[chainName]; exists {
+			privateKey = chainData.PrivateKey
+			walletAddress = chainData.Address
+		}
+	}
+	
+	// Check if the address matches the current wallet
+	if walletAddress != address {
+		return "", errors.New("address does not match current wallet")
+	}
+	
 	// Get chain implementation
 	chainImpl, err := wm.chainFactory.GetChain(chainName)
 	if err != nil {
@@ -1184,7 +1236,7 @@ func (wm *WalletManager) SignMessage(ctx context.Context, address, message strin
 	}
 	
 	// Sign the message using the chain implementation
-	signature, err = chainImpl.SignMessage(wm.currentWalletData.PrivateKey, message)
+	signature, err = chainImpl.SignMessage(privateKey, message)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign message: %w", err)
 	}

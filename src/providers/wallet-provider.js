@@ -59,9 +59,52 @@
         delete this._callbacks[response.id];
         
         if (response.error) {
-          callback.reject(new Error(response.error));
+          // If error is a string, create an Error object
+          if (typeof response.error === 'string') {
+            callback.reject(new Error(response.error));
+          } else if (typeof response.error === 'object' && response.error !== null) {
+            // If error is an object, try to extract message or stringify it
+            const errorMessage = response.error.message || JSON.stringify(response.error);
+            callback.reject(new Error(errorMessage));
+          } else {
+            callback.reject(new Error('Unknown error'));
+          }
         } else {
-          callback.resolve(response.result);
+          // Special handling for Solana responses to ensure correct format
+          if (this._chain === 'solana' && response.result) {
+            // Ensure the result has the correct format for Solana
+            let solanaResult = response.result;
+            
+            // If we have a signature and publicKey, make sure they're in the right format
+            if (solanaResult.signature && solanaResult.publicKey) {
+              // For Solana, the signature should be a base58 string without 0x prefix
+              // The publicKey should also be a base58 string without 0x prefix
+              if (typeof solanaResult.signature === 'string' && solanaResult.signature.startsWith('0x')) {
+                solanaResult.signature = solanaResult.signature.substring(2); // Remove 0x prefix
+              }
+              
+              if (typeof solanaResult.publicKey === 'string' && solanaResult.publicKey.startsWith('0x')) {
+                solanaResult.publicKey = solanaResult.publicKey.substring(2); // Remove 0x prefix
+              }
+              
+              // Ensure signature is a proper 64-byte array for Solana
+              // If we have a base58 signature, decode it to bytes for proper format
+              try {
+                // We need to check if the signature is base58 encoded
+                if (typeof solanaResult.signature === 'string') {
+                  // This would require a base58 decoding library in the browser
+                  // For now, we'll return it as-is but ensure it's properly formatted
+                  console.log('Solana signature (base58):', solanaResult.signature);
+                }
+              } catch (decodeError) {
+                console.error('Failed to decode Solana signature:', decodeError);
+              }
+            }
+            
+            callback.resolve(solanaResult);
+          } else {
+            callback.resolve(response.result);
+          }
         }
       },
 
@@ -130,6 +173,36 @@
               method: 'signMessage', 
               params: [Array.from(messageBytes)] // Convert to array for JSON serialization
             });
+            
+            // For Solana, we need to return the signature in the correct format
+            if (result && result.signature && result.publicKey) {
+              // GMGN and other Solana dApps expect:
+              // 1. signature as Uint8Array (64 bytes)
+              // 2. publicKey as base58 string (not with 0x prefix)
+              
+              // Convert signature from array of integers back to Uint8Array
+              let signatureBytes;
+              if (Array.isArray(result.signature)) {
+                signatureBytes = new Uint8Array(result.signature);
+              } else {
+                // If it's not an array, we have a problem with our implementation
+                throw new Error('Invalid signature format: expected array of integers');
+              }
+              
+              // Ensure the signature is exactly 64 bytes
+              if (signatureBytes.length !== 64) {
+                throw new Error(`Invalid signature length: expected 64 bytes, got ${signatureBytes.length}`);
+              }
+              
+              // Return the properly formatted result
+              const formattedResult = {
+                signature: signatureBytes, // Uint8Array(64)
+                publicKey: result.publicKey // Base58 string without 0x prefix
+              };
+              
+              console.log(`${this._chain} message signed successfully:`, formattedResult);
+              return formattedResult;
+            }
           } else {
             // For Ethereum and other EVM chains, use personal_sign
             result = await this.request({ 

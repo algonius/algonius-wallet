@@ -25,8 +25,8 @@ type UnlockWalletResult struct {
 
 // WalletStatusResult represents the result of wallet status check
 type WalletStatusResult struct {
-	HasWallet  bool   `json:"hasWallet"`
-	IsUnlocked bool   `json:"isUnlocked"`
+	HasWallet  bool   `json:"has_wallet"`
+	IsUnlocked bool   `json:"is_unlocked"`
 	Address    string `json:"address,omitempty"`
 }
 
