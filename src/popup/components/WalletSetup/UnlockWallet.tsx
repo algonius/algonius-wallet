@@ -52,11 +52,6 @@ export const UnlockWallet: React.FC<UnlockWalletProps> = ({
     }
   }, [password, unlockWallet, onComplete]);
 
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isLoading) {
-      handleUnlock();
-    }
-  }, [handleUnlock, isLoading]);
 
   return (
     <div className={`space-y-6 ${className}`}>
