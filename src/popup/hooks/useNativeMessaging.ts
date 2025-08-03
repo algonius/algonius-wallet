@@ -27,7 +27,7 @@ export function useNativeMessaging() {
           return;
         }
         
-        resolve(response);
+        resolve(response?.result || response);
       });
     });
   }, []);
@@ -42,12 +42,12 @@ export function useNativeMessaging() {
         success: true,
         result: response as WalletCreationResult
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: {
           code: -1,
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: 'Unknown error'
         }
       };
     }
@@ -63,12 +63,12 @@ export function useNativeMessaging() {
         success: true,
         result: response as WalletImportResult
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
         error: {
           code: -1,
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: 'Unknown error'
         }
       };
     }
@@ -83,9 +83,68 @@ export function useNativeMessaging() {
            chrome.runtime.sendMessage !== undefined;
   }, []);
 
+  /**
+   * Unlocks an existing wallet with password
+   */
+  const unlockWallet = useCallback(async (password: string): Promise<WalletOperationResponse> => {
+    try {
+      const response = await sendRpcRequest('unlock_wallet', { password });
+      return {
+        success: true,
+        result: response as WalletImportResult
+      };
+    } catch {
+      return {
+        success: false,
+        error: {
+          code: -1,
+          message: 'Unknown error'
+        }
+      };
+    }
+  }, [sendRpcRequest]);
+
+  /**
+   * Locks the wallet (clears sensitive data from memory)
+   */
+  const lockWallet = useCallback(async (): Promise<{ success: boolean }> => {
+    try {
+      await sendRpcRequest('lock_wallet', {});
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
+  }, [sendRpcRequest]);
+
+  /**
+   * Checks wallet status (exists, unlocked, etc.)
+   */
+  const getWalletStatus = useCallback(async (): Promise<{
+    hasWallet: boolean;
+    isUnlocked: boolean;
+    address?: string;
+  }> => {
+    try {
+      const response = await sendRpcRequest('wallet_status', {});
+      return response as {
+        hasWallet: boolean;
+        isUnlocked: boolean;
+        address?: string;
+      };
+    } catch {
+      return {
+        hasWallet: false,
+        isUnlocked: false
+      };
+    }
+  }, [sendRpcRequest]);
+
   return {
     createWallet,
     importWallet,
+    unlockWallet,
+    lockWallet,
+    getWalletStatus,
     isNativeMessagingAvailable,
     sendRpcRequest
   };

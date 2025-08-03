@@ -3,59 +3,283 @@ package wallet
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/algonius/algonius-wallet/native/pkg/config"
+	"github.com/algonius/algonius-wallet/native/pkg/dex"
 	"github.com/algonius/algonius-wallet/native/pkg/security"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
+	"github.com/mr-tron/base58"
+	"go.uber.org/zap"
 )
+
+// EncryptedWalletData represents encrypted wallet storage format
+type EncryptedWalletData struct {
+	Address          string                 `json:"address"`
+	PublicKey        string                 `json:"public_key"`
+	EncryptedPrivateKey *security.EncryptedData `json:"encrypted_private_key"`
+	EncryptedMnemonic    *security.EncryptedData `json:"encrypted_mnemonic"`
+	Chains           map[string]bool        `json:"chains"`
+	CreatedAt        int64                  `json:"created_at"`
+	LastUsed         int64                  `json:"last_used"`
+}
+
+// DecryptedWalletData represents decrypted wallet data in memory
+type DecryptedWalletData struct {
+	Address    string            `json:"address"`
+	PublicKey  string            `json:"public_key"`
+	PrivateKey string            `json:"private_key"`
+	Mnemonic   string            `json:"mnemonic"`
+	ChainData  map[string]*ChainSpecificData `json:"chain_data,omitempty"` // Chain-specific addresses and keys
+}
+
+// ChainSpecificData holds chain-specific wallet information
+type ChainSpecificData struct {
+	Address    string `json:"address"`
+	PublicKey  string `json:"public_key"`
+	PrivateKey string `json:"private_key"`
+}
 
 type WalletManager struct {
 	chainFactory *chain.ChainFactory
-	// For demo purposes, we'll store a simple wallet status
-	// In a real implementation, this would be stored securely
+	// Storage configuration
+	walletDir    string
+	// Current wallet state (only loaded when user enters password)
 	currentWallet *WalletStatus
+	currentWalletData *DecryptedWalletData
+	isUnlocked   bool
 	// Audit logger for security events
 	auditLogger *AuditLogger
 	// Mock storage for pending transactions
 	pendingTxs []*PendingTransaction
+	// Logger for debugging and monitoring
+	logger *zap.Logger
 }
 
 // NewWalletManager constructs a new WalletManager.
 func NewWalletManager() *WalletManager {
+	// Get wallet directory from environment or default
+	walletHomeDir := getWalletHomeDir()
+	walletDir := filepath.Join(walletHomeDir, "wallets")
+	
+	// Create wallet directory if it doesn't exist
+	os.MkdirAll(walletDir, 0700)
+	
+	// Use no-op logger if none provided
+	logger := zap.NewNop()
+	
 	return &WalletManager{
 		chainFactory: chain.NewChainFactory(),
+		walletDir:    walletDir,
 		auditLogger:  NewAuditLogger(),
 		pendingTxs:   make([]*PendingTransaction, 0),
+		isUnlocked:   false,
+		logger:       logger,
 	}
 }
 
-// CreateWallet creates a new wallet for the specified chain.
-func (wm *WalletManager) CreateWallet(ctx context.Context, chainName string) (address string, publicKey string, err error) {
-	// Get the chain implementation
-	chainImpl, err := wm.chainFactory.GetChain(chainName)
-	if err != nil {
-		return "", "", err
+// NewWalletManagerWithConfig constructs a new WalletManager with configuration.
+func NewWalletManagerWithConfig(config *config.Config, dexAggregator dex.IDEXAggregator, logger *zap.Logger) *WalletManager {
+	// Get wallet directory from config or environment
+	logger.Info("NewWalletManagerWithConfig starting", 
+		zap.String("config_data_dir", config.Wallet.DataDir))
+	
+	// Ensure the DataDir path is properly expanded (handle ~ if present)
+	dataDir := config.Wallet.DataDir
+	if dataDir != "" && dataDir[0] == '~' {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			logger.Error("Failed to get home directory", zap.Error(err))
+			dataDir = "." // fallback to current directory
+		} else {
+			dataDir = filepath.Join(homeDir, dataDir[1:])
+		}
 	}
+	
+	walletDir := filepath.Join(dataDir, "wallets")
+	logger.Info("NewWalletManagerWithConfig wallet directory constructed", 
+		zap.String("wallet_dir", walletDir),
+		zap.String("expanded_data_dir", dataDir))
+	
+	// Create wallet directory if it doesn't exist
+	os.MkdirAll(walletDir, 0700)
+	
+	// Create chain factory with configuration
+	var chainFactory *chain.ChainFactory
+	if dexAggregator != nil && logger != nil {
+		chainFactory = chain.NewChainFactoryWithDEX(dexAggregator, logger, config)
+	} else {
+		chainFactory = chain.NewChainFactory()
+	}
+	
+	return &WalletManager{
+		chainFactory: chainFactory,
+		walletDir:    walletDir,
+		auditLogger:  NewAuditLogger(),
+		pendingTxs:   make([]*PendingTransaction, 0),
+		isUnlocked:   false,
+		logger:       logger,
+	}
+}
 
-	// Create the wallet using the chain implementation
+// getWalletHomeDir returns the wallet home directory, respecting environment override
+func getWalletHomeDir() string {
+	// Check environment variable first
+	if homeDir := os.Getenv("ALGONIUS_WALLET_HOME"); homeDir != "" {
+		return homeDir
+	}
+	
+	// Default path
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(userHome, ".algonius-wallet")
+}
+
+// CreateWallet creates a new wallet for the specified chain.
+func (wm *WalletManager) CreateWallet(ctx context.Context, chainName, password string) (address string, publicKey string, mnemonic string, err error) {
+	wm.logger.Info("WalletManager.CreateWallet started", 
+		zap.String("chain", chainName),
+		zap.Int("password_length", len(password)))
+	
+	// Validate password
+	if err := ValidatePassword(password); err != nil {
+		wm.logger.Error("CreateWallet password validation failed", 
+			zap.Error(err),
+			zap.String("chain", chainName))
+		return "", "", "", fmt.Errorf("weak password: %w", err)
+	}
+	wm.logger.Info("CreateWallet password validation passed")
+
+	// Validate and normalize chain name
+	if err := ValidateChain(chainName); err != nil {
+		wm.logger.Error("CreateWallet chain validation failed", 
+			zap.Error(err),
+			zap.String("chain", chainName))
+		return "", "", "", err
+	}
+	normalizedChain := NormalizeChain(chainName)
+	wm.logger.Info("CreateWallet chain validation passed", zap.String("normalized_chain", normalizedChain))
+
+	// Get chain implementation
+	chainImpl, err := wm.chainFactory.GetChain(normalizedChain)
+	if err != nil {
+		wm.logger.Error("CreateWallet failed to get chain implementation", 
+			zap.Error(err),
+			zap.String("chain", normalizedChain))
+		return "", "", "", fmt.Errorf("chain not supported: %w", err)
+	}
+	wm.logger.Info("CreateWallet got chain implementation")
+
+	// Create wallet using chain-specific implementation
 	walletInfo, err := chainImpl.CreateWallet(ctx)
 	if err != nil {
-		return "", "", err
+		wm.logger.Error("CreateWallet failed to create chain wallet", 
+			zap.Error(err),
+			zap.String("chain", normalizedChain))
+		return "", "", "", fmt.Errorf("failed to create wallet: %w", err)
+	}
+	wm.logger.Info("CreateWallet created chain wallet successfully",
+		zap.String("address", walletInfo.Address),
+		zap.Int("mnemonic_word_count", len(strings.Fields(walletInfo.Mnemonic))))
+
+	// Encrypt private key and mnemonic for storage
+	encryptedPrivateKey, err := security.EncryptWithPassword(walletInfo.PrivateKey, password)
+	if err != nil {
+		wm.logger.Error("CreateWallet private key encryption failed", 
+			zap.Error(err))
+		return "", "", "", fmt.Errorf("storage encryption failed: %w", err)
 	}
 
-	// Store the wallet status (for demo purposes)
-	wm.currentWallet = NewWalletStatus(walletInfo.Address, walletInfo.PublicKey)
-	// Add supported chains
-	wm.currentWallet.Chains["ethereum"] = true
-	wm.currentWallet.Chains["bsc"] = true
-	wm.currentWallet.Chains["solana"] = true
+	encryptedMnemonic, err := security.EncryptWithPassword(walletInfo.Mnemonic, password)
+	if err != nil {
+		wm.logger.Error("CreateWallet mnemonic encryption failed", 
+			zap.Error(err))
+		return "", "", "", fmt.Errorf("storage encryption failed: %w", err)
+	}
+	wm.logger.Info("CreateWallet encryption completed")
 
-	// TODO: Store the wallet securely (encrypted private key and mnemonic)
-	// For now, we only return the address and public key
-	return walletInfo.Address, walletInfo.PublicKey, nil
+	// Store the wallet status
+	createdTime := time.Now().Unix()
+	wm.currentWallet = NewWalletStatus(walletInfo.Address, walletInfo.PublicKey)
+	wm.currentWallet.LastUsed = createdTime
+
+	// Add supported chains based on created chain
+	switch normalizedChain {
+	case "ethereum":
+		wm.currentWallet.Chains["ethereum"] = true
+		wm.currentWallet.Chains["bsc"] = true // BSC is Ethereum-compatible
+	case "bsc":
+		wm.currentWallet.Chains["bsc"] = true
+		wm.currentWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	case "solana":
+		wm.currentWallet.Chains["solana"] = true
+	}
+
+	// Create encrypted wallet data structure
+	encryptedWallet := &EncryptedWalletData{
+		Address:             walletInfo.Address,
+		PublicKey:           walletInfo.PublicKey,
+		EncryptedPrivateKey: encryptedPrivateKey,
+		EncryptedMnemonic:   encryptedMnemonic,
+		Chains:              make(map[string]bool),
+		CreatedAt:           createdTime,
+		LastUsed:            createdTime,
+	}
+	
+	// Add supported chains to encrypted wallet data
+	switch normalizedChain {
+	case "ethereum":
+		encryptedWallet.Chains["ethereum"] = true
+		encryptedWallet.Chains["bsc"] = true
+	case "bsc":
+		encryptedWallet.Chains["bsc"] = true
+		encryptedWallet.Chains["ethereum"] = true
+	case "solana":
+		encryptedWallet.Chains["solana"] = true
+	}
+	
+	// Save encrypted wallet to disk
+	wm.logger.Info("CreateWallet saving wallet to disk")
+	err = wm.saveWalletToDisk(encryptedWallet)
+	if err != nil {
+		wm.logger.Error("CreateWallet failed to save wallet to disk", 
+			zap.Error(err))
+		return "", "", "", fmt.Errorf("failed to save wallet: %w", err)
+	}
+	wm.logger.Info("CreateWallet wallet saved to disk successfully")
+	
+	// Load decrypted data into memory for immediate use
+	wm.logger.Info("CreateWallet loading wallet into memory and unlocking")
+	wm.currentWalletData = &DecryptedWalletData{
+		Address:    walletInfo.Address,
+		PublicKey:  walletInfo.PublicKey,
+		PrivateKey: walletInfo.PrivateKey,
+		Mnemonic:   walletInfo.Mnemonic,
+		ChainData:  make(map[string]*ChainSpecificData),
+	}
+	
+	// Add chain-specific data
+	wm.currentWalletData.ChainData[normalizedChain] = &ChainSpecificData{
+		Address:    walletInfo.Address,
+		PublicKey:  walletInfo.PublicKey,
+		PrivateKey: walletInfo.PrivateKey,
+	}
+	
+	wm.isUnlocked = true
+
+	wm.logger.Info("CreateWallet completed successfully", 
+		zap.String("address", walletInfo.Address),
+		zap.Int("mnemonic_word_count", len(strings.Fields(walletInfo.Mnemonic))))
+
+	return walletInfo.Address, walletInfo.PublicKey, walletInfo.Mnemonic, nil
 }
 
 // ImportWallet imports a wallet using a mnemonic phrase
@@ -88,7 +312,7 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	}
 
 	// Import wallet using the chain-specific implementation
-	walletInfo, err := wm.importWalletFromMnemonic(chainImpl, mnemonic, derivationPath)
+	walletInfo, err := wm.importWalletFromMnemonic(ctx, chainImpl, mnemonic, derivationPath)
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to import wallet: %w", err)
 	}
@@ -122,37 +346,78 @@ func (wm *WalletManager) ImportWallet(ctx context.Context, mnemonic, password, c
 	case "bsc":
 		wm.currentWallet.Chains["bsc"] = true
 		wm.currentWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	case "solana":
+		wm.currentWallet.Chains["solana"] = true
 	}
 
-	// TODO: Store encrypted private key and mnemonic in secure storage
-	// For now, we just validate that encryption worked
-	_ = encryptedPrivateKey
-	_ = encryptedMnemonic
+	// Create encrypted wallet data structure
+	encryptedWallet := &EncryptedWalletData{
+		Address:             walletInfo.Address,
+		PublicKey:           walletInfo.PublicKey,
+		EncryptedPrivateKey: encryptedPrivateKey,
+		EncryptedMnemonic:   encryptedMnemonic,
+		Chains:              make(map[string]bool),
+		CreatedAt:           importTime,
+		LastUsed:            importTime,
+	}
+	
+	// Add supported chains based on imported chain
+	switch normalizedChain {
+	case "ethereum":
+		encryptedWallet.Chains["ethereum"] = true
+		encryptedWallet.Chains["bsc"] = true // BSC is Ethereum-compatible
+	case "bsc":
+		encryptedWallet.Chains["bsc"] = true
+		encryptedWallet.Chains["ethereum"] = true // ETH is BSC-compatible
+	case "solana":
+		encryptedWallet.Chains["solana"] = true
+	}
+	
+	// Save encrypted wallet to disk
+	err = wm.saveWalletToDisk(encryptedWallet)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("failed to save wallet: %w", err)
+	}
+
+	// Load decrypted data into memory
+	if wm.currentWalletData == nil {
+		wm.currentWalletData = &DecryptedWalletData{
+			Address:    walletInfo.Address,
+			PublicKey:  walletInfo.PublicKey,
+			PrivateKey: walletInfo.PrivateKey,
+			Mnemonic:   walletInfo.Mnemonic,
+			ChainData:  make(map[string]*ChainSpecificData),
+		}
+	} else {
+		// Update existing wallet data
+		wm.currentWalletData.Address = walletInfo.Address
+		wm.currentWalletData.PublicKey = walletInfo.PublicKey
+		wm.currentWalletData.PrivateKey = walletInfo.PrivateKey
+		wm.currentWalletData.Mnemonic = walletInfo.Mnemonic
+		if wm.currentWalletData.ChainData == nil {
+			wm.currentWalletData.ChainData = make(map[string]*ChainSpecificData)
+		}
+	}
+	
+	// Add chain-specific data
+	wm.currentWalletData.ChainData[normalizedChain] = &ChainSpecificData{
+		Address:    walletInfo.Address,
+		PublicKey:  walletInfo.PublicKey,
+		PrivateKey: walletInfo.PrivateKey,
+	}
+
+	wm.isUnlocked = true
 
 	return walletInfo.Address, walletInfo.PublicKey, importTime, nil
 }
 
 // importWalletFromMnemonic imports a wallet from mnemonic using chain-specific logic
-func (wm *WalletManager) importWalletFromMnemonic(chainImpl chain.IChain, mnemonic, derivationPath string) (*chain.WalletInfo, error) {
-	// For now, we'll use a simplified approach that creates a wallet from mnemonic
-	// This should be enhanced to support proper HD wallet derivation paths
-	
-	// Since the current chain implementations don't have ImportFromMnemonic methods,
-	// we'll use the CreateWallet method and then verify it can reproduce wallets
-	// In a production system, this would be replaced with proper mnemonic import logic
-	
-	walletInfo, err := chainImpl.CreateWallet(context.Background())
+func (wm *WalletManager) importWalletFromMnemonic(ctx context.Context, chainImpl chain.IChain, mnemonic, derivationPath string) (*chain.WalletInfo, error) {
+	// Use the chain-specific ImportFromMnemonic method
+	walletInfo, err := chainImpl.ImportFromMnemonic(ctx, mnemonic, derivationPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create wallet: %w", err)
+		return nil, fmt.Errorf("failed to import wallet from mnemonic: %w", err)
 	}
-
-	// TODO: Replace this with actual mnemonic-based wallet derivation
-	// For now, this is a simplified implementation that demonstrates the structure
-	// In production, you would:
-	// 1. Parse the derivation path (e.g., "m/44'/60'/0'/0/0")
-	// 2. Use the mnemonic to generate a seed
-	// 3. Use HD wallet derivation to get the private key at the specified path
-	// 4. Generate the corresponding public key and address
 
 	return walletInfo, nil
 }
@@ -783,4 +1048,201 @@ func (wm *WalletManager) AddPendingTransaction(ctx context.Context, tx *PendingT
 	wm.pendingTxs = append(wm.pendingTxs, tx)
 	
 	return nil
+}
+
+// Wallet Storage Methods
+
+// saveWalletToDisk saves encrypted wallet data to disk
+func (wm *WalletManager) saveWalletToDisk(walletData *EncryptedWalletData) error {
+	walletFile := filepath.Join(wm.walletDir, "wallet.json")
+	
+	wm.logger.Info("saveWalletToDisk starting", 
+		zap.String("wallet_file", walletFile),
+		zap.String("wallet_dir", wm.walletDir))
+	
+	// Ensure wallet directory exists
+	if err := os.MkdirAll(wm.walletDir, 0700); err != nil {
+		wm.logger.Error("saveWalletToDisk failed to create wallet directory", 
+			zap.Error(err),
+			zap.String("wallet_dir", wm.walletDir))
+		return fmt.Errorf("failed to create wallet directory: %w", err)
+	}
+	wm.logger.Info("saveWalletToDisk wallet directory exists/created")
+	
+	// Convert to JSON
+	jsonData, err := json.MarshalIndent(walletData, "", "  ")
+	if err != nil {
+		wm.logger.Error("saveWalletToDisk failed to marshal wallet data", 
+			zap.Error(err))
+		return fmt.Errorf("failed to marshal wallet data: %w", err)
+	}
+	wm.logger.Info("saveWalletToDisk wallet data marshaled", 
+		zap.Int("json_size", len(jsonData)))
+	
+	// Write to file with restricted permissions
+	err = os.WriteFile(walletFile, jsonData, 0600)
+	if err != nil {
+		wm.logger.Error("saveWalletToDisk failed to write wallet file", 
+			zap.Error(err),
+			zap.String("wallet_file", walletFile))
+		return fmt.Errorf("failed to write wallet file: %w", err)
+	}
+	
+	wm.logger.Info("saveWalletToDisk completed successfully", 
+		zap.String("wallet_file", walletFile))
+	return nil
+}
+
+// loadWalletFromDisk loads encrypted wallet data from disk
+func (wm *WalletManager) loadWalletFromDisk() (*EncryptedWalletData, error) {
+	walletFile := filepath.Join(wm.walletDir, "wallet.json")
+	
+	// Check if wallet file exists
+	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
+		return nil, errors.New("no wallet found")
+	}
+	
+	// Read wallet file
+	jsonData, err := os.ReadFile(walletFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read wallet file: %w", err)
+	}
+	
+	// Parse JSON
+	var walletData EncryptedWalletData
+	err = json.Unmarshal(jsonData, &walletData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse wallet file: %w", err)
+	}
+	
+	return &walletData, nil
+}
+
+// UnlockWallet decrypts and loads wallet data into memory with password
+func (wm *WalletManager) UnlockWallet(password string) error {
+	// Load encrypted wallet data from disk
+	encryptedWallet, err := wm.loadWalletFromDisk()
+	if err != nil {
+		return fmt.Errorf("failed to load wallet: %w", err)
+	}
+	
+	// Decrypt private key
+	privateKey, err := security.DecryptWithPassword(encryptedWallet.EncryptedPrivateKey, password)
+	if err != nil {
+		return fmt.Errorf("incorrect password or corrupted wallet: %w", err)
+	}
+	
+	// Decrypt mnemonic
+	mnemonic, err := security.DecryptWithPassword(encryptedWallet.EncryptedMnemonic, password)
+	if err != nil {
+		return fmt.Errorf("incorrect password or corrupted wallet: %w", err)
+	}
+	
+	// Load decrypted data into memory
+	wm.currentWalletData = &DecryptedWalletData{
+		Address:    encryptedWallet.Address,
+		PublicKey:  encryptedWallet.PublicKey,
+		PrivateKey: privateKey,
+		Mnemonic:   mnemonic,
+	}
+	
+	// Load wallet status
+	wm.currentWallet = &WalletStatus{
+		Address:   encryptedWallet.Address,
+		PublicKey: encryptedWallet.PublicKey,
+		Chains:    encryptedWallet.Chains,
+		LastUsed:  encryptedWallet.LastUsed,
+	}
+	
+	wm.isUnlocked = true
+	
+	return nil
+}
+
+// LockWallet clears sensitive data from memory
+func (wm *WalletManager) LockWallet() {
+	if wm.currentWalletData != nil {
+		// Clear sensitive data
+		wm.currentWalletData.PrivateKey = ""
+		wm.currentWalletData.Mnemonic = ""
+		wm.currentWalletData = nil
+	}
+	wm.isUnlocked = false
+}
+
+// IsUnlocked returns whether the wallet is currently unlocked
+func (wm *WalletManager) IsUnlocked() bool {
+	return wm.isUnlocked && wm.currentWalletData != nil
+}
+
+// HasWallet returns whether a wallet file exists on disk
+func (wm *WalletManager) HasWallet() bool {
+	walletFile := filepath.Join(wm.walletDir, "wallet.json")
+	_, err := os.Stat(walletFile)
+	return err == nil
+}
+
+// GetCurrentWallet returns the current wallet status
+func (wm *WalletManager) GetCurrentWallet() *WalletStatus {
+	return wm.currentWallet
+}
+
+// SignMessage signs a message with the private key of the specified address
+func (wm *WalletManager) SignMessage(ctx context.Context, address, message string) (signature string, err error) {
+	// Check if wallet is unlocked
+	if !wm.IsUnlocked() {
+		return "", errors.New("wallet is locked")
+	}
+	
+	// Determine which chain to use based on the message type for Solana
+	// For Solana, we look at the message prefix
+	var chainName string
+	if strings.HasPrefix(message, "__SOLANA_RAW_BYTES__:") {
+		chainName = "solana"
+	} else if strings.HasPrefix(address, "0x") {
+		// For Ethereum-style addresses, use Ethereum chain
+		chainName = "ethereum"
+	} else {
+		// Try to decode as base58 to verify it's a valid Solana address
+		if _, err := base58.Decode(address); err == nil {
+			chainName = "solana"
+		} else {
+			// Default to Ethereum if we can't determine
+			chainName = "ethereum"
+		}
+	}
+	
+	// Get the appropriate private key for the chain
+	privateKey := wm.currentWalletData.PrivateKey
+	walletAddress := wm.currentWalletData.Address
+	
+	// If we have chain-specific data, use it
+	if wm.currentWalletData.ChainData != nil {
+		if chainData, exists := wm.currentWalletData.ChainData[chainName]; exists {
+			privateKey = chainData.PrivateKey
+			walletAddress = chainData.Address
+		}
+	}
+	
+	// Check if the address matches the current wallet
+	if walletAddress != address {
+		return "", errors.New("address does not match current wallet")
+	}
+	
+	// Get chain implementation
+	chainImpl, err := wm.chainFactory.GetChain(chainName)
+	if err != nil {
+		return "", fmt.Errorf("%s chain not supported: %w", chainName, err)
+	}
+	
+	// Sign the message using the chain implementation
+	signature, err = chainImpl.SignMessage(privateKey, message)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign message: %w", err)
+	}
+	
+	// Log the signing event
+	// TODO: Implement proper audit logging when needed
+	
+	return signature, nil
 }

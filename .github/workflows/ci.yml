@@ -128,18 +128,39 @@ jobs:
           cp native/bin/algonius-wallet-host $HOME/.algonius-wallet/bin/
           chmod 755 $HOME/.algonius-wallet/bin/algonius-wallet-host
           
-          # Install the manifest file
-          mkdir -p $HOME/.algonius-wallet
-          # Create manifest with correct extension ID for testing
-          echo '{
-            "name": "com.algonius.wallet",
+          # Create native host manifest in both Chrome and Chromium directories
+          # Note: The native host name should match what's used in McpHostManager.ts
+          mkdir -p $HOME/.config/google-chrome/NativeMessagingHosts
+          mkdir -p $HOME/.config/chromium/NativeMessagingHosts
+          
+          MANIFEST_CONTENT='{
+            "name": "ai.algonius.wallet",
             "description": "Algonius Wallet Native Host",
             "path": "'"$HOME/.algonius-wallet/bin/algonius-wallet-host"'",
             "type": "stdio",
             "allowed_origins": [
               "chrome-extension://abcdefghijklmnopqrstuvwxyz012345/"
             ]
-          }' > $HOME/.algonius-wallet/com.algonius.wallet.json
+          }'
+          
+          echo "$MANIFEST_CONTENT" > $HOME/.config/google-chrome/NativeMessagingHosts/ai.algonius.wallet.json
+          echo "$MANIFEST_CONTENT" > $HOME/.config/chromium/NativeMessagingHosts/ai.algonius.wallet.json
+          
+          # Also create in legacy location for compatibility
+          mkdir -p $HOME/.algonius-wallet
+          echo "$MANIFEST_CONTENT" > $HOME/.algonius-wallet/ai.algonius.wallet.json
+          
+          # Test native host binary
+          echo "Testing native host binary..."
+          $HOME/.algonius-wallet/bin/algonius-wallet-host --version || echo "Version command failed, but binary exists"
+          echo "Native host binary directory:"
+          ls -la $HOME/.algonius-wallet/bin/
+          echo "Chrome native messaging hosts:"
+          ls -la $HOME/.config/google-chrome/NativeMessagingHosts/ || echo "Chrome directory not found"
+          echo "Chromium native messaging hosts:"
+          ls -la $HOME/.config/chromium/NativeMessagingHosts/ || echo "Chromium directory not found"
+          echo "Legacy manifest location:"
+          ls -la $HOME/.algonius-wallet/*.json || echo "No manifests in legacy location"
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium

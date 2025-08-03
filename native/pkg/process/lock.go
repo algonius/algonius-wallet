@@ -14,6 +14,15 @@ const (
 	PIDFileName = "algonius-wallet-host.pid"
 )
 
+// getWalletHomeDir returns the wallet home directory, respecting environment override
+func getWalletHomeDir() string {
+	// Check environment variable first
+	if homeDir := os.Getenv("ALGONIUS_WALLET_HOME"); homeDir != "" {
+		return homeDir
+	}
+	return ""
+}
+
 // LockPIDFile creates a PID file to prevent multiple instances
 // Returns true if successfully locked, false if another instance is running
 func LockPIDFile() (bool, error) {
@@ -23,14 +32,17 @@ func LockPIDFile() (bool, error) {
 // LockPIDFileWithSuffix creates a PID file with an optional suffix to prevent multiple instances
 // Returns true if successfully locked, false if another instance is running
 func LockPIDFileWithSuffix(suffix string) (bool, error) {
-	// Get user's home directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return false, fmt.Errorf("failed to get home directory: %w", err)
+	// Get wallet home directory (respects ALGONIUS_WALLET_HOME environment variable)
+	pidDir := getWalletHomeDir()
+	if pidDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return false, fmt.Errorf("failed to get home directory: %w", err)
+		}
+		pidDir = filepath.Join(homeDir, ".algonius-wallet")
 	}
 	
 	// Create full path to PID file
-	pidDir := filepath.Join(homeDir, ".algonius-wallet")
 	fileName := PIDFileName
 	if suffix != "" {
 		fileName = fmt.Sprintf("algonius-wallet-host-%s.pid", suffix)
@@ -83,28 +95,34 @@ func LockPIDFileWithSuffix(suffix string) (bool, error) {
 
 // UnlockPIDFile removes the PID file
 func UnlockPIDFile() error {
-	// Get user's home directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+	// Get wallet home directory (respects ALGONIUS_WALLET_HOME environment variable)
+	pidDir := getWalletHomeDir()
+	if pidDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+		pidDir = filepath.Join(homeDir, ".algonius-wallet")
 	}
 	
 	// Remove PID file
-	pidDir := filepath.Join(homeDir, ".algonius-wallet")
 	pidFilePath := filepath.Join(pidDir, PIDFileName)
 	return os.Remove(pidFilePath)
 }
 
 // KillExistingProcess kills any existing process recorded in the PID file
 func KillExistingProcess() error {
-	// Get user's home directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+	// Get wallet home directory (respects ALGONIUS_WALLET_HOME environment variable)
+	pidDir := getWalletHomeDir()
+	if pidDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+		pidDir = filepath.Join(homeDir, ".algonius-wallet")
 	}
 	
 	// Check if PID file exists
-	pidDir := filepath.Join(homeDir, ".algonius-wallet")
 	pidFilePath := filepath.Join(pidDir, PIDFileName)
 	
 	if _, err := os.Stat(pidFilePath); err != nil {
