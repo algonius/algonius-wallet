@@ -54,7 +54,31 @@ function updateManifestFile(extensionId: string) {
       let manifestContent;
       
       if (existsSync(manifestPath)) {
-        manifestContent = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+        try {
+          const content = readFileSync(manifestPath, 'utf-8').trim();
+          if (content) {
+            manifestContent = JSON.parse(content);
+          } else {
+            // File exists but is empty, create new manifest
+            manifestContent = {
+              "name": "ai.algonius.wallet",
+              "description": "Algonius Wallet Native Host",
+              "path": path.join(homedir(), ".algonius-wallet", "bin", "algonius-wallet-host"),
+              "type": "stdio",
+              "allowed_origins": [`chrome-extension://${extensionId}/`]
+            };
+          }
+        } catch (error) {
+          console.warn(`Failed to parse manifest at ${manifestPath}, creating new one:`, error);
+          // Create a new manifest if parsing fails
+          manifestContent = {
+            "name": "ai.algonius.wallet",
+            "description": "Algonius Wallet Native Host",
+            "path": path.join(homedir(), ".algonius-wallet", "bin", "algonius-wallet-host"),
+            "type": "stdio",
+            "allowed_origins": [`chrome-extension://${extensionId}/`]
+          };
+        }
       } else {
         // Create a new manifest
         manifestContent = {
