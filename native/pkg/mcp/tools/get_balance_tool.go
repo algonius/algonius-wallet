@@ -7,6 +7,7 @@ import (
 	"github.com/algonius/algonius-wallet/native/pkg/errors"
 	"github.com/algonius/algonius-wallet/native/pkg/mcp/toolutils"
 	"github.com/algonius/algonius-wallet/native/pkg/wallet"
+	"github.com/algonius/algonius-wallet/native/pkg/wallet/chain"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -23,15 +24,23 @@ func NewGetBalanceTool(manager wallet.IWalletManager) *GetBalanceTool {
 
 // GetMeta returns the MCP tool definition for "get_balance" as per the documented API schema.
 func (t *GetBalanceTool) GetMeta() mcp.Tool {
+	description := "Query wallet balance for native tokens and contracts. " +
+		"Supported native tokens: ETH (Ethereum), BNB (BSC), SOL (Solana). " +
+		"Also supports ERC-20/BEP-20 contract addresses."
+	
+	tokenDescription := "Token identifier or contract address. " +
+		"Native tokens: ETH, ETHER, BNB, BINANCE, SOL, SOLANA. " +
+		"Contract addresses: 0x... (Ethereum/BSC) or base58 (Solana)"
+	
 	return mcp.NewTool("get_balance",
-		mcp.WithDescription("Query wallet balance"),
+		mcp.WithDescription(description),
 		mcp.WithString("address",
 			mcp.Required(),
-			mcp.Description("Wallet address"),
+			mcp.Description("Wallet address (0x... for ETH/BSC, base58 for Solana)"),
 		),
 		mcp.WithString("token",
 			mcp.Required(),
-			mcp.Description("Native token or token contract address"),
+			mcp.Description(tokenDescription),
 		),
 	)
 }
@@ -50,6 +59,18 @@ func (t *GetBalanceTool) GetHandler() server.ToolHandlerFunc {
 		if err != nil {
 			toolErr := errors.MissingRequiredFieldError("token")
 			return toolutils.FormatErrorResult(toolErr), nil
+		}
+
+		// Validate token using centralized mapping for better error messages
+		if _, err := chain.DefaultTokenMapping.GetTokenInfo(token); err != nil {
+			// Check if it might be a contract address
+			if !((len(token) == 42 && token[:2] == "0x") || (len(token) >= 32 && len(token) <= 44)) {
+				// Provide helpful suggestion for unsupported tokens
+				toolErr := errors.New(errors.ErrTokenNotSupported, "Token identifier not recognized").
+					WithDetails(err.Error()).
+					WithSuggestion("Supported tokens: ETH, ETHER, BNB, BINANCE, SOL, SOLANA. For contract tokens, use full address.")
+				return toolutils.FormatErrorResult(toolErr), nil
+			}
 		}
 
 		balance, err := t.manager.GetBalance(ctx, address, token)

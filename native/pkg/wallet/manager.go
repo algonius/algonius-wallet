@@ -431,33 +431,69 @@ func (wm *WalletManager) GetBalance(ctx context.Context, address, token string) 
 		token = "ETH"
 	}
 
-	// Determine chain based on token identifier
-	// This is a simple approach - in a production system, you might want a more sophisticated
-	// method that can determine the chain from the address format or other metadata
-	var chainName string
-	tokenUpper := strings.ToUpper(token)
-	
-	switch {
-	case tokenUpper == "ETH" || tokenUpper == "ETHER":
-		chainName = "ETH"
-	case tokenUpper == "BNB" || tokenUpper == "BINANCE":
-		chainName = "BSC"
-	case tokenUpper == "SOL" || tokenUpper == "SOLANA":
-		chainName = "SOL"
-	default:
-		// For contract addresses, we'll default to ETH for now
-		// A more sophisticated implementation might analyze the address format
-		// or require an explicit chain parameter
-		chainName = "ETH"
+	// Use centralized token mapping to determine the target chain
+	chainName, err := chain.DefaultTokenMapping.GetChainForToken(token)
+	if err != nil {
+		// For contract addresses or unknown tokens, analyze address format to guess chain
+		// This provides backward compatibility for direct contract address queries
+		chainName = wm.guessChainFromAddress(address, token)
+		if chainName == "" {
+			return "", fmt.Errorf("unable to determine chain for token %s: %w", token, err)
+		}
 	}
 
 	// Get the chain implementation
 	chainImpl, err := wm.chainFactory.GetChain(chainName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("chain %s not supported: %w", chainName, err)
 	}
 
 	return chainImpl.GetBalance(ctx, address, token)
+}
+
+// guessChainFromAddress attempts to determine the blockchain from address format
+// This is used as a fallback for contract addresses or unknown tokens
+func (wm *WalletManager) guessChainFromAddress(address, token string) string {
+	// For Ethereum-style hex addresses (0x...), check if it's a contract address
+	if strings.HasPrefix(address, "0x") && len(address) == 42 {
+		// Check if token looks like a contract address
+		if strings.HasPrefix(token, "0x") && len(token) == 42 {
+			// Contract address - default to Ethereum for now
+			// In a more sophisticated implementation, we could maintain a registry
+			// of known contract addresses per chain
+			return "ETH"
+		}
+		// Hex address but not contract token - could be ETH or BSC (same format)
+		// Default to Ethereum for backward compatibility
+		return "ETH"
+	}
+	
+	// For base58 addresses, likely Solana
+	if wm.isBase58Address(address) {
+		return "SOL"
+	}
+	
+	// Default fallback
+	return "ETH"
+}
+
+// isBase58Address checks if an address appears to be a valid Solana base58 address
+func (wm *WalletManager) isBase58Address(address string) bool {
+	// Basic check for base58 address format
+	// Solana addresses are typically 32-44 characters in base58
+	if len(address) < 32 || len(address) > 44 {
+		return false
+	}
+	
+	// Check if all characters are valid base58
+	base58Chars := "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	for _, char := range address {
+		if !strings.ContainsRune(base58Chars, char) {
+			return false
+		}
+	}
+	
+	return true
 }
 
 // GetStatus returns the current wallet status.
