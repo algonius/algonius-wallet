@@ -48,16 +48,16 @@ func TestImportWallet_NativeMessaging_Integration(t *testing.T) {
 		assert.True(t, addressStr[:2] == "0x", "Ethereum address should start with 0x")
 
 		// Verify public key
-		publicKey, exists := resultData["public_key"]
-		require.True(t, exists, "Result should contain public_key")
+		publicKey, exists := resultData["publicKey"]
+		require.True(t, exists, "Result should contain publicKey")
 		publicKeyStr, ok := publicKey.(string)
 		require.True(t, ok, "Public key should be a string")
 		assert.True(t, len(publicKeyStr) > 0, "Public key should not be empty")
 		assert.True(t, publicKeyStr[:2] == "0x", "Public key should start with 0x")
 
-		// Verify imported_at timestamp
-		importedAt, exists := resultData["imported_at"]
-		require.True(t, exists, "Result should contain imported_at")
+		// Verify importedAt timestamp
+		importedAt, exists := resultData["importedAt"]
+		require.True(t, exists, "Result should contain importedAt")
 		importedAtFloat, ok := importedAt.(float64)
 		require.True(t, ok, "ImportedAt should be a number")
 		assert.Greater(t, int64(importedAtFloat), int64(0), "ImportedAt timestamp should be positive")
@@ -66,7 +66,7 @@ func TestImportWallet_NativeMessaging_Integration(t *testing.T) {
 	// Test BSC chain support
 	t.Run("BSC chain support via native messaging", func(t *testing.T) {
 		params := map[string]interface{}{
-			"mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+			"mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon cactus",
 			"password": "test_password_bsc",
 			"chain":    "bsc",
 		}
@@ -85,6 +85,36 @@ func TestImportWallet_NativeMessaging_Integration(t *testing.T) {
 		address, exists := resultData["address"]
 		require.True(t, exists, "Response should contain address")
 		require.NotNil(t, address, "Address should not be nil")
+	})
+
+	// Test Solana chain support
+	t.Run("Solana chain support via native messaging", func(t *testing.T) {
+		params := map[string]interface{}{
+			"mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+			"password": "test_password_solana",
+			"chain":    "solana",
+		}
+
+		response, err := nativeMsg.RpcRequest(ctx, "import_wallet", params)
+		require.NoError(t, err, "import_wallet RPC with Solana should succeed")
+		require.NotNil(t, response, "Response should not be nil")
+
+		// Extract result data from response
+		result, exists := response["result"]
+		require.True(t, exists, "Response should contain result")
+		resultData, ok := result.(map[string]interface{})
+		require.True(t, ok, "Result should be a map")
+
+		// Verify result exists and has required fields
+		address, exists := resultData["address"]
+		require.True(t, exists, "Response should contain address")
+		require.NotNil(t, address, "Address should not be nil")
+		
+		// Verify Solana address format (should be Base58 encoded, not start with 0x)
+		addressStr, ok := address.(string)
+		require.True(t, ok, "Address should be a string")
+		assert.True(t, len(addressStr) > 32, "Solana address should be > 32 characters")
+		assert.False(t, addressStr[:2] == "0x", "Solana address should not start with 0x")
 	})
 
 	// Test validation errors

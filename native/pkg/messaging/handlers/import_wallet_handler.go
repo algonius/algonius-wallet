@@ -21,8 +21,8 @@ type ImportWalletParams struct {
 // ImportWalletResult represents the result of import_wallet RPC method
 type ImportWalletResult struct {
 	Address    string `json:"address"`
-	PublicKey  string `json:"public_key"`
-	ImportedAt int64  `json:"imported_at"`
+	PublicKey  string `json:"publicKey"`
+	ImportedAt int64  `json:"importedAt"`
 }
 
 // ImportWalletError codes as specified in the requirements
