@@ -160,14 +160,24 @@ func main() {
 			// Forward transaction completion events to browser extension for overlay hiding
 			// REQ-EXT-012: Update or remove overlay when AI Agent completes decision
 			if event.Type == "transaction_confirmed" || event.Type == "transaction_rejected" {
+				completionData := map[string]interface{}{
+					"transaction_hash": event.Data["transaction_hash"],
+					"status": event.Type, // "transaction_confirmed" or "transaction_rejected"
+					"timestamp": event.Timestamp.Format(time.RFC3339),
+				}
+				
+				// Marshal data to json.RawMessage
+				dataBytes, err := json.Marshal(completionData)
+				if err != nil {
+					zapLogger.Warn("Failed to marshal overlay completion data", zap.Error(err))
+					continue
+				}
+				
 				overlayCompletionMessage := messaging.Message{
 					Type: "ALGONIUS_TRANSACTION_COMPLETED",
-					Data: map[string]interface{}{
-						"transaction_hash": event.Data["transaction_hash"],
-						"status": event.Type, // "transaction_confirmed" or "transaction_rejected"
-						"timestamp": event.Timestamp.Format(time.RFC3339),
-					},
+					Data: dataBytes,
 				}
+				
 				// Send completion message to browser extension (best effort)
 				if err := nm.SendMessage(overlayCompletionMessage); err != nil {
 					zapLogger.Warn("Failed to send overlay completion message to browser extension", zap.Error(err))

@@ -214,28 +214,41 @@ func handleSendTransaction(id string, params Web3RequestParams, manager wallet.I
 	// Send overlay message to browser extension for transaction confirmation overlay
 	// REQ-EXT-009: Display overlay when DApp transaction is pending AI Agent approval
 	if nativeMessaging != nil {
-		overlayMessage := messaging.Message{
-			Type: "ALGONIUS_PENDING_TRANSACTION",
-			Data: map[string]interface{}{
-				"transaction": map[string]interface{}{
-					"hash":                      pendingTx.Hash,
-					"chain":                     pendingTx.Chain,
-					"from":                      pendingTx.From,
-					"to":                        pendingTx.To,
-					"amount":                    pendingTx.Amount,
-					"token":                     pendingTx.Token,
-					"type":                      pendingTx.Type,
-					"status":                    pendingTx.Status,
-					"confirmations":             pendingTx.Confirmations,
-					"required_confirmations":    pendingTx.RequiredConfirmations,
-					"gas_fee":                   pendingTx.GasFee,
-					"priority":                  pendingTx.Priority,
-					"estimated_confirmation_time": pendingTx.EstimatedConfirmationTime,
-					"submitted_at":              pendingTx.SubmittedAt.Format(time.RFC3339),
-					"last_checked":              pendingTx.LastChecked.Format(time.RFC3339),
-				},
+		overlayData := map[string]interface{}{
+			"transaction": map[string]interface{}{
+				"hash":                      pendingTx.Hash,
+				"chain":                     pendingTx.Chain,
+				"from":                      pendingTx.From,
+				"to":                        pendingTx.To,
+				"amount":                    pendingTx.Amount,
+				"token":                     pendingTx.Token,
+				"type":                      pendingTx.Type,
+				"status":                    pendingTx.Status,
+				"confirmations":             pendingTx.Confirmations,
+				"required_confirmations":    pendingTx.RequiredConfirmations,
+				"gas_fee":                   pendingTx.GasFee,
+				"priority":                  pendingTx.Priority,
+				"estimated_confirmation_time": pendingTx.EstimatedConfirmationTime,
+				"submitted_at":              pendingTx.SubmittedAt.Format(time.RFC3339),
+				"last_checked":              pendingTx.LastChecked.Format(time.RFC3339),
 			},
 		}
+		
+		// Marshal data to json.RawMessage
+		dataBytes, err := json.Marshal(overlayData)
+		if err != nil {
+			// Log error but don't fail the transaction
+			return messaging.RpcResponse{
+				ID:     id,
+				Result: json.RawMessage(fmt.Sprintf(`"%s"`, pendingTx.Hash)),
+			}, nil
+		}
+		
+		overlayMessage := messaging.Message{
+			Type: "ALGONIUS_PENDING_TRANSACTION",
+			Data: dataBytes,
+		}
+		
 		// Send message to browser extension (best effort, don't fail transaction if this fails)
 		if err := nativeMessaging.SendMessage(overlayMessage); err != nil {
 			// Log error but don't fail the transaction
