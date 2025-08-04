@@ -34,7 +34,7 @@ type TransactionParams struct {
 }
 
 // CreateWeb3RequestHandler creates a handler for web3 requests from web pages
-func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.EventBroadcaster) messaging.RpcHandler {
+func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.EventBroadcaster, nativeMessaging *messaging.NativeMessaging) messaging.RpcHandler {
 	return func(req messaging.RpcRequest) (messaging.RpcResponse, error) {
 		var params Web3RequestParams
 		if req.Params != nil {
@@ -61,7 +61,7 @@ func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.
 			return handleGetChainId(req.ID)
 		
 		case "eth_sendTransaction":
-			return handleSendTransaction(req.ID, params, manager, broadcaster)
+			return handleSendTransaction(req.ID, params, manager, broadcaster, nativeMessaging)
 		
 		case "personal_sign":
 			return handlePersonalSign(req.ID, params, manager, broadcaster)
@@ -125,7 +125,7 @@ func handleGetChainId(id string) (messaging.RpcResponse, error) {
 }
 
 // handleSendTransaction handles eth_sendTransaction requests from web pages
-func handleSendTransaction(id string, params Web3RequestParams, manager wallet.IWalletManager, broadcaster *event.EventBroadcaster) (messaging.RpcResponse, error) {
+func handleSendTransaction(id string, params Web3RequestParams, manager wallet.IWalletManager, broadcaster *event.EventBroadcaster, nativeMessaging *messaging.NativeMessaging) (messaging.RpcResponse, error) {
 	// Parse transaction parameters
 	var txParams []TransactionParams
 	paramsBytes, err := json.Marshal(params.Params)
@@ -209,6 +209,38 @@ func handleSendTransaction(id string, params Web3RequestParams, manager wallet.I
 			},
 		}
 		broadcaster.Broadcast(event)
+	}
+
+	// Send overlay message to browser extension for transaction confirmation overlay
+	// REQ-EXT-009: Display overlay when DApp transaction is pending AI Agent approval
+	if nativeMessaging != nil {
+		overlayMessage := messaging.Message{
+			Type: "ALGONIUS_PENDING_TRANSACTION",
+			Data: map[string]interface{}{
+				"transaction": map[string]interface{}{
+					"hash":                      pendingTx.Hash,
+					"chain":                     pendingTx.Chain,
+					"from":                      pendingTx.From,
+					"to":                        pendingTx.To,
+					"amount":                    pendingTx.Amount,
+					"token":                     pendingTx.Token,
+					"type":                      pendingTx.Type,
+					"status":                    pendingTx.Status,
+					"confirmations":             pendingTx.Confirmations,
+					"required_confirmations":    pendingTx.RequiredConfirmations,
+					"gas_fee":                   pendingTx.GasFee,
+					"priority":                  pendingTx.Priority,
+					"estimated_confirmation_time": pendingTx.EstimatedConfirmationTime,
+					"submitted_at":              pendingTx.SubmittedAt.Format(time.RFC3339),
+					"last_checked":              pendingTx.LastChecked.Format(time.RFC3339),
+				},
+			},
+		}
+		// Send message to browser extension (best effort, don't fail transaction if this fails)
+		if err := nativeMessaging.SendMessage(overlayMessage); err != nil {
+			// Log error but don't fail the transaction
+			// Note: We should add proper logging here, but for now just continue
+		}
 	}
 
 	// Return the pending transaction hash
