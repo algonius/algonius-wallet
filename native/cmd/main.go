@@ -301,6 +301,13 @@ func main() {
 	simulateTransactionTool := tools.NewSimulateTransactionTool(walletManager, chainFactory)
 	mcp.RegisterTool(s, simulateTransactionTool)
 
+	// Register new tools
+	signMessageTool := tools.NewSignMessageTool(walletManager, zapLogger)
+	mcp.RegisterTool(s, signMessageTool)
+
+	getTransactionStatusTool := tools.NewGetTransactionStatusTool(walletManager, zapLogger)
+	mcp.RegisterTool(s, getTransactionStatusTool)
+
 	// Start unified MCP server with multiple transport protocols
 	var wg sync.WaitGroup
 	wg.Add(1)
