@@ -17,8 +17,10 @@ import (
 
 // GetTransactionStatusTool implements the MCP "get_transaction_status" tool for checking blockchain transaction status.
 type GetTransactionStatusTool struct {
-	manager wallet.IWalletManager
-	logger  *zap.Logger
+	manager            wallet.IWalletManager
+	logger             *zap.Logger
+	detectChainFromHash func(txHash string) string
+	getChainInterface   func(chainName string) (chain.IChain, error)
 }
 
 // NewGetTransactionStatusTool constructs a GetTransactionStatusTool with the given wallet manager.
@@ -29,6 +31,12 @@ func NewGetTransactionStatusTool(manager wallet.IWalletManager, logger *zap.Logg
 	return &GetTransactionStatusTool{
 		manager: manager,
 		logger:  logger,
+		detectChainFromHash: func(txHash string) string {
+			return detectChainFromHash(txHash)
+		},
+		getChainInterface: func(chainName string) (chain.IChain, error) {
+			return getChainInterface(chainName)
+		},
 	}
 }
 
@@ -121,7 +129,7 @@ func (t *GetTransactionStatusTool) GetHandler() server.ToolHandlerFunc {
 				"- **Status**: `confirmed`\n"+
 				"- **Confirmations**: `%d`\n"+
 				"- **Block Number**: `%d`\n"+
-				"- **Gas Used**: `%d`\n"+
+				"- **Gas Used**: `%s`\n"+
 				"- **Transaction Fee**: `%s`\n"+
 				"- **Timestamp**: `%s`\n",
 				txHash, chainName, confirmation.Confirmations, confirmation.BlockNumber,
@@ -138,9 +146,9 @@ func (t *GetTransactionStatusTool) GetHandler() server.ToolHandlerFunc {
 				"- **Transaction Hash**: `%s`\n"+
 				"- **Chain**: `%s`\n"+
 				"- **Status**: `failed`\n"+
-				"- **Error**: `%s`\n"+
+				"- **Transaction Fee**: `%s`\n"+
 				"- **Timestamp**: `%s`\n",
-				txHash, chainName, confirmation.ErrorMessage, confirmation.Timestamp.Format("2006-01-02 15:04:05 UTC"))
+				txHash, chainName, confirmation.TransactionFee, confirmation.Timestamp.Format("2006-01-02 15:04:05 UTC"))
 		} else {
 			markdown = fmt.Sprintf("### Transaction Status: %s\n\n"+
 				"- **Transaction Hash**: `%s`\n"+
@@ -155,7 +163,7 @@ func (t *GetTransactionStatusTool) GetHandler() server.ToolHandlerFunc {
 }
 
 // detectChainFromHash attempts to determine the chain based on the transaction hash format
-func (t *GetTransactionStatusTool) detectChainFromHash(txHash string) string {
+func detectChainFromHash(txHash string) string {
 	// Ethereum-style hashes start with 0x and are 66 characters long (0x + 64 hex chars)
 	if len(txHash) == 66 && strings.HasPrefix(txHash, "0x") {
 		return "ethereum"
@@ -175,14 +183,14 @@ func (t *GetTransactionStatusTool) detectChainFromHash(txHash string) string {
 }
 
 // getChainInterface gets the appropriate chain interface for the given chain name
-func (t *GetTransactionStatusTool) getChainInterface(chainName string) (chain.Chain, error) {
+func getChainInterface(chainName string) (chain.IChain, error) {
 	switch strings.ToLower(chainName) {
 	case "solana", "sol":
 		return chain.NewSolanaChainLegacy(), nil
 	case "ethereum", "eth":
-		return chain.NewETHChain(nil, t.logger), nil
+		return chain.NewETHChainLegacy(), nil
 	case "bsc", "binance smart chain":
-		return chain.NewBSCChain(nil, t.logger), nil
+		return chain.NewBSCChainLegacy(), nil
 	default:
 		return nil, fmt.Errorf("unsupported chain: %s", chainName)
 	}
