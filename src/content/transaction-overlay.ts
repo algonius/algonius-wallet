@@ -3,10 +3,10 @@
  * Implements REQ-EXT-009 to REQ-EXT-012
  */
 
-import { PendingTransaction } from '../shared/types';
+import type { PendingTransaction } from '../shared/types';
 
 // Re-export for backward compatibility
-export { PendingTransaction };
+export type { PendingTransaction };
 
 /**
  * TransactionOverlay manages the display of pending transaction notifications
