@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TransactionOverlay } from '../transaction-overlay';
 
 // Define PendingTransaction interface based on Go struct
@@ -207,7 +207,6 @@ describe('TransactionOverlay', () => {
   describe('Show/hide functionality', () => {
     it('should handle multiple calls to showPendingTransaction', async () => {
       overlay.showPendingTransaction(mockTransaction);
-      const firstOverlay = document.querySelector('.algonius-transaction-overlay');
       
       overlay.showPendingTransaction({...mockTransaction, amount: '1.0'});
       

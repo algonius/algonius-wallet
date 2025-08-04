@@ -31,7 +31,7 @@ export interface PendingTransaction {
 // Message types for communication between content script and native host
 export interface NativeMessage {
   type: string;
-  data?: any;
+  data?: Record<string, unknown>;
   transaction?: PendingTransaction;
 }
 

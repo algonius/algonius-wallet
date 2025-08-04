@@ -7,7 +7,7 @@ global.chrome = {
     sendMessage: vi.fn(),
     getURL: vi.fn(() => 'chrome-extension://test/providers/wallet-provider.js'),
   },
-} as any;
+} as typeof chrome;
 
 // Mock process.env for development mode
 process.env.NODE_ENV = 'development';
@@ -208,10 +208,10 @@ describe('Content Script Integration with TransactionOverlay', () => {
         amount: undefined,
         token: null,
         to: ''
-      } as any;
+      } as Partial<PendingTransaction>;
 
       // Should not throw error with malformed data
-      expect(() => overlay.showPendingTransaction(malformedTransaction)).not.toThrow();
+      expect(() => overlay.showPendingTransaction(malformedTransaction as PendingTransaction)).not.toThrow();
       
       // Should still create overlay element (with undefined/null values)
       const overlayElement = document.querySelector('.algonius-transaction-overlay');
