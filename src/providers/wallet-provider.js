@@ -326,7 +326,7 @@
   console.log('Ethereum compatibility object attached to window');
 
   // Auto-connect for known platforms
-  if (window.location.hostname.match(/dexscreener\.com|gmgn\.ai|jupiter\.ag|uniswap\.org|1inch\.io/)) {
+  if (window.location.hostname.match(/dexscreener\.com|gmgn\.ai|jup\.ag|uniswap\.org|1inch\.io/)) {
     console.log('Auto-connecting on:', window.location.origin);
     // Use setTimeout to ensure page is fully loaded before attempting connection
     setTimeout(() => {

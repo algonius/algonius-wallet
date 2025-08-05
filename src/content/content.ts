@@ -7,7 +7,7 @@ import { TransactionOverlay, PendingTransaction } from './transaction-overlay';
 
 // Check if we should inject based on hostname or for development/debugging
 const shouldInject = window.location.hostname.match(
-  /dexscreener\.com|gmgn\.ai|jupiter\.ag|uniswap\.org|1inch\.io/
+  /dexscreener\.com|gmgn\.ai|jup\.ag|uniswap\.org|1inch\.io/
 ) || process.env.NODE_ENV === 'development';
 
 // Always inject for now to support Phantom compatibility testing
