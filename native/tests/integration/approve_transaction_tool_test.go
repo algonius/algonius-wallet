@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -12,9 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 // TestApproveTransactionToolRealFlow tests the complete flow:
-// 1. Browser extension sends a transaction via Native Messaging 
+// 1. Browser extension sends a transaction via Native Messaging
 // 2. AI Agent approves it via MCP tool
 func TestApproveTransactionToolRealFlow(t *testing.T) {
 	ctx := context.Background()
@@ -27,7 +29,7 @@ func TestApproveTransactionToolRealFlow(t *testing.T) {
 	// Get both Native Messaging and MCP clients
 	nativeMsg := testEnv.GetNativeMsg()
 	require.NotNil(t, nativeMsg, "Native messaging should not be nil")
-	
+
 	mcpClient := testEnv.GetMcpClient()
 	require.NotNil(t, mcpClient, "MCP client should not be nil")
 	require.NoError(t, mcpClient.Initialize(ctx), "failed to initialize MCP client")
@@ -51,7 +53,7 @@ func TestApproveTransactionToolRealFlow(t *testing.T) {
 		// Extract an existing transaction hash from the pending list
 		textContent := getTextContent(pendingResult)
 		require.Contains(t, textContent, "Transaction 1", "should have at least one pending transaction")
-		
+
 		// Extract the first transaction hash from the content
 		// Look for the pattern `0x...` in the content
 		lines := strings.Split(textContent, "\n")
@@ -116,7 +118,7 @@ func TestApproveTransactionToolRealFlow(t *testing.T) {
 				}
 			}
 		}
-		
+
 		// If we don't have a second transaction, use the first one again
 		if txHash == "" {
 			for _, line := range lines {
@@ -146,7 +148,7 @@ func TestApproveTransactionToolRealFlow(t *testing.T) {
 		rejectText := getTextContent(rejectResult)
 		if strings.Contains(rejectText, "not found") || strings.Contains(rejectText, "unauthorized") || strings.Contains(rejectText, "does not belong") {
 			// Expected in test environment - either not found or unauthorized
-			assert.True(t, strings.Contains(rejectText, "not found") || strings.Contains(rejectText, "unauthorized") || strings.Contains(rejectText, "does not belong"), 
+			assert.True(t, strings.Contains(rejectText, "not found") || strings.Contains(rejectText, "unauthorized") || strings.Contains(rejectText, "does not belong"),
 				"should show expected error (not found or unauthorized)")
 		} else {
 			// If transaction is found and authorized, verify successful rejection
@@ -169,41 +171,41 @@ func TestApproveTransactionToolNativeMessagingIntegration(t *testing.T) {
 
 	nativeMsg := testEnv.GetNativeMsg()
 	require.NotNil(t, nativeMsg, "Native messaging should not be nil")
-	
+
 	// Import and unlock a wallet first
 	importParams := map[string]interface{}{
 		"mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
 		"password": "test_password_123",
 		"chain":    "ethereum",
 	}
-	
+
 	importResponse, err := nativeMsg.RpcRequest(ctx, "import_wallet", importParams)
 	require.NoError(t, err, "failed to import wallet")
 	require.NotNil(t, importResponse, "import wallet response should not be nil")
 	require.NotContains(t, importResponse, "error", "import wallet should not return error")
 	require.Contains(t, importResponse, "result", "import wallet should return result")
-	
+
 	// Extract the address from the import response
 	importResult, ok := importResponse["result"].(map[string]interface{})
 	require.True(t, ok, "import result should be a map")
 	importedAddress, ok := importResult["address"].(string)
 	require.True(t, ok, "address should be a string")
 	require.NotEmpty(t, importedAddress, "address should not be empty")
-	
+
 	// Wait a moment for wallet to be saved
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Unlock the wallet
 	unlockParams := map[string]interface{}{
 		"password": "test_password_123",
 	}
-	
+
 	unlockResponse, err := nativeMsg.RpcRequest(ctx, "unlock_wallet", unlockParams)
 	require.NoError(t, err, "failed to unlock wallet")
 	require.NotNil(t, unlockResponse, "unlock wallet response should not be nil")
 	require.NotContains(t, unlockResponse, "error", "unlock wallet should not return error")
 	require.Contains(t, unlockResponse, "result", "unlock wallet should return result")
-	
+
 	mcpClient := testEnv.GetMcpClient()
 	require.NotNil(t, mcpClient, "MCP client should not be nil")
 	require.NoError(t, mcpClient.Initialize(ctx), "failed to initialize MCP client")
@@ -213,11 +215,11 @@ func TestApproveTransactionToolNativeMessagingIntegration(t *testing.T) {
 		"method": "eth_sendTransaction",
 		"params": []map[string]any{
 			{
-				"from":     importedAddress,  // Use the imported address
+				"from":     importedAddress, // Use the imported address
 				"to":       "0x8ba1f109551bD432803012645Hac136c22C4F9B",
 				"value":    "0x16345785d8a0000", // 0.1 ETH in wei
-				"gas":      "0x5208",             // 21000
-				"gasPrice": "0x4a817c800",        // 20 gwei
+				"gas":      "0x5208",            // 21000
+				"gasPrice": "0x4a817c800",       // 20 gwei
 			},
 		},
 		"origin": "https://uniswap.org",
@@ -244,13 +246,13 @@ func TestApproveTransactionToolNativeMessagingIntegration(t *testing.T) {
 	// In test environment, this will show "not found" which is expected
 	approveText := getTextContent(approveResult)
 	assert.NotEmpty(t, approveText, "approve tool should return content")
-	
-	// Test signature request as well  
+
+	// Test signature request as well
 	signParams := map[string]any{
-		"method": "personal_sign", 
+		"method": "personal_sign",
 		"params": []string{
 			"Hello, this is a test message to sign!",
-			importedAddress,  // Use the imported address
+			importedAddress, // Use the imported address
 		},
 		"origin": "https://app.ens.domains",
 	}
@@ -354,10 +356,10 @@ func TestApproveTransactionToolParameterValidation(t *testing.T) {
 	require.NoError(t, client.Initialize(ctx), "failed to initialize MCP client")
 
 	testCases := []struct {
-		name           string
-		args           map[string]interface{}
-		expectedError  string
-		description    string
+		name          string
+		args          map[string]interface{}
+		expectedError string
+		description   string
 	}{
 		{
 			name:          "missing_transaction_hash",
@@ -417,7 +419,7 @@ func TestApproveTransactionToolParameterValidation(t *testing.T) {
 			require.True(t, result.IsError, tc.description)
 
 			textContent := getTextContent(result)
-			assert.Contains(t, strings.ToLower(textContent), strings.ToLower(tc.expectedError), 
+			assert.Contains(t, strings.ToLower(textContent), strings.ToLower(tc.expectedError),
 				"error message should contain expected field name")
 		})
 	}
@@ -493,13 +495,13 @@ func TestApproveTransactionToolActionTypes(t *testing.T) {
 				// But they should fail with "not found" rather than parameter validation error
 				if result.IsError {
 					textContent := getTextContent(result)
-					assert.Contains(t, textContent, "not found", 
+					assert.Contains(t, textContent, "not found",
 						"valid parameters should fail on transaction not found, not parameter validation")
 				}
 			} else {
 				require.True(t, result.IsError, "invalid action should return error")
 				textContent := getTextContent(result)
-				assert.Contains(t, strings.ToLower(textContent), "action", 
+				assert.Contains(t, strings.ToLower(textContent), "action",
 					"error should be about action parameter")
 			}
 		})
@@ -565,7 +567,7 @@ func TestApproveTransactionToolTransactionHashFormats(t *testing.T) {
 			// All these should pass parameter validation but fail on transaction not found
 			if result.IsError {
 				textContent := getTextContent(result)
-				assert.Contains(t, textContent, "not found", 
+				assert.Contains(t, textContent, "not found",
 					"should fail on transaction not found, not parameter format validation")
 			}
 		})
@@ -586,10 +588,10 @@ func TestApproveTransactionToolReasonValidation(t *testing.T) {
 	require.NoError(t, client.Initialize(ctx), "failed to initialize MCP client")
 
 	testCases := []struct {
-		name          string
-		reason        string
-		expectError   bool
-		description   string
+		name        string
+		reason      string
+		expectError bool
+		description string
 	}{
 		{
 			name:        "simple_reason",
@@ -644,13 +646,13 @@ func TestApproveTransactionToolReasonValidation(t *testing.T) {
 			if tc.expectError {
 				require.True(t, result.IsError, tc.description)
 				textContent := getTextContent(result)
-				assert.Contains(t, strings.ToLower(textContent), "reason", 
+				assert.Contains(t, strings.ToLower(textContent), "reason",
 					"error should mention reason field")
 			} else {
 				// Valid reasons should pass validation but fail on transaction not found
 				if result.IsError {
 					textContent := getTextContent(result)
-					assert.Contains(t, textContent, "not found", 
+					assert.Contains(t, textContent, "not found",
 						"should fail on transaction not found, not reason validation")
 				}
 			}
@@ -756,10 +758,10 @@ func TestApproveTransactionToolErrorHandling(t *testing.T) {
 	require.NoError(t, client.Initialize(ctx), "failed to initialize MCP client")
 
 	errorTestCases := []struct {
-		name           string
-		args           map[string]interface{}
-		expectedError  bool
-		description    string
+		name          string
+		args          map[string]interface{}
+		expectedError bool
+		description   string
 	}{
 		{
 			name: "malformed_json_like_hash",
@@ -802,7 +804,7 @@ func TestApproveTransactionToolErrorHandling(t *testing.T) {
 				// Even if parameters are valid, should fail on transaction not found
 				if result.IsError {
 					textContent := getTextContent(result)
-					assert.Contains(t, textContent, "not found", 
+					assert.Contains(t, textContent, "not found",
 						"should fail gracefully with transaction not found")
 				}
 			}
@@ -835,7 +837,7 @@ func TestApproveTransactionToolContentValidation(t *testing.T) {
 
 	// Verify content structure
 	require.NotEmpty(t, result.Content, "result should have content")
-	
+
 	textContent, ok := mcp.AsTextContent(result.Content[0])
 	require.True(t, ok, "result content should be text")
 	require.NotEmpty(t, textContent.Text, "text content should not be empty")
@@ -844,7 +846,7 @@ func TestApproveTransactionToolContentValidation(t *testing.T) {
 	text := textContent.Text
 	if !result.IsError {
 		// If successful, should contain markdown formatting
-		assert.True(t, strings.Contains(text, "###") || strings.Contains(text, "##") || strings.Contains(text, "#"), 
+		assert.True(t, strings.Contains(text, "###") || strings.Contains(text, "##") || strings.Contains(text, "#"),
 			"successful response should contain markdown headers")
 		assert.Contains(t, text, "**", "should contain bold markdown formatting")
 	}
@@ -874,7 +876,7 @@ func TestApproveTransactionToolPerformance(t *testing.T) {
 		result, err := client.CallTool("approve_transaction", args)
 		require.NoError(t, err, "request %d should not return error", i+1)
 		require.NotNil(t, result, "request %d result should not be nil", i+1)
-		
+
 		// Each request should be handled independently
 		require.NotEmpty(t, result.Content, "request %d should have content", i+1)
 	}

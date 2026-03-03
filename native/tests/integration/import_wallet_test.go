@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 // SPDX-License-Identifier: Apache-2.0
 package integration
 
@@ -109,7 +112,7 @@ func TestImportWallet_NativeMessaging_Integration(t *testing.T) {
 		address, exists := resultData["address"]
 		require.True(t, exists, "Response should contain address")
 		require.NotNil(t, address, "Address should not be nil")
-		
+
 		// Verify Solana address format (should be Base58 encoded, not start with 0x)
 		addressStr, ok := address.(string)
 		require.True(t, ok, "Address should be a string")
@@ -185,15 +188,15 @@ func TestImportWallet_NativeMessaging_Integration(t *testing.T) {
 				response, err := nativeMsg.RpcRequest(ctx, "import_wallet", tt.params)
 				require.NoError(t, err, "RPC transport should succeed")
 				require.NotNil(t, response, "Response should not be nil")
-				
+
 				// Should have error in response structure
 				errorInfo, exists := response["error"]
 				require.True(t, exists, "Response should contain error")
 				require.NotNil(t, errorInfo, "Error should not be nil")
-				
+
 				errorMap, ok := errorInfo.(map[string]interface{})
 				require.True(t, ok, "Error should be a map")
-				
+
 				// Check error message contains expected substring
 				message, exists := errorMap["message"]
 				require.True(t, exists, "Error should have message")

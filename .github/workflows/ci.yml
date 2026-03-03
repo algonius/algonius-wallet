@@ -5,9 +5,21 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_integration:
+        description: "Run native integration tests"
+        required: false
+        default: false
+        type: boolean
+      run_e2e:
+        description: "Run Playwright e2e tests"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
-  # Build and test native host
+  # Build and test native host (non-integration)
   native-host:
     runs-on: ubuntu-latest
     defaults:
@@ -46,9 +58,6 @@ jobs:
 
       - name: Unit test native host
         run: make unit-test
-
-      - name: Integration test native host
-        run: make integration-test-all
 
       - name: Upload native host binary
         uses: actions/upload-artifact@v4
@@ -89,8 +98,40 @@ jobs:
           path: dist/
           retention-days: 1
 
+  # Integration tests are opt-in due runtime and external dependencies
+  native-integration:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration == 'true' }}
+    runs-on: ubuntu-latest
+    needs: [native-host]
+    defaults:
+      run:
+        working-directory: native
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run integration tests
+        run: make integration-test-all INTEGRATION_TEST_TIMEOUT=15m
+
   # E2E tests that require both native host and extension
   e2e-tests:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_e2e == 'true' }}
     runs-on: ubuntu-latest
     needs: [native-host, extension]
 

@@ -1,66 +1,102 @@
 # Algonius Wallet
 
-A secure browser extension wallet with native host integration.
+Algonius Wallet is a browser extension + Go native host wallet stack for AI agents and users.
 
-## Prerequisites
+## Requirements
 
-- Go 1.20+
-- Node.js 16+
-- Chrome or Firefox browser
+- Node.js 20+
+- npm 10+
+- Go 1.24+
 - GNU Make
 
-## Getting Started
+## Quick Start
 
-### 1. Build and Run Native Host
-
-```bash
-cd projects/algonius-wallet
-make build  # Build the native host
-make run    # Run with 30s timeout
-```
-
-### 2. Install System-wide (Optional)
+1. Install frontend dependencies:
 
 ```bash
-make install  # Install to /usr/local/bin
+npm ci
 ```
 
-### 3. Start Browser Extension MCP Server
+2. Build extension (includes TypeScript type check):
 
-1. Load the extension in developer mode
-2. The extension will automatically start MCP server on port 8080
+```bash
+npm run build
+```
 
-### 4. Connect Native Host to MCP Server
+3. Build native host:
 
-The native host will automatically connect when both are running.
+```bash
+cd native
+make build
+```
 
-## Development
+4. Run native host locally:
 
-### Makefile Targets
+```bash
+cd native
+make run
+```
 
-- `make build`: Build native host
-- `make install`: Install system-wide
-- `make run`: Run with timeout
+## Test Commands
 
-### Native Host Features
+- Frontend unit tests: `npm run test:ci`
+- Native non-integration tests: `cd native && make unit-test`
+- Native integration tests: `cd native && make integration-test-all`
+  - Integration tests are behind build tag `integration`
+  - Default `go test ./...` will not execute integration tests
 
-- Wallet creation and management
-- Secure key storage
-- Transaction signing
-- MCP server integration
+## Supported Chains
 
-### Extension Features
+- `ethereum`
+- `bsc`
+- `solana`
 
-- UI for wallet operations
-- MCP server for native communication
-- Transaction confirmation flow
+Source of truth:
+- MCP resource `chains://supported`
+- Wallet status resource `wallet://status`
 
-## Troubleshooting
+## MCP Resources
 
-- If connection fails, ensure MCP server is running first
-- Check firewall settings for port 8080
-- Use `make run` for automatic timeout
+- `chains://supported`: returns supported chain list
+- `wallet://status`: returns current wallet readiness/address/public key/chains
 
-## License
+## MCP Tools
 
-MIT
+- `create_wallet`
+- `get_balance`
+- `send_transaction`
+- `approve_transaction`
+- `swap_tokens`
+- `get_pending_transactions`
+- `get_transaction_history`
+- `simulate_transaction`
+- `sign_message`
+- `get_transaction_status`
+
+## Architecture Overview
+
+The project has two runtime components:
+
+- Browser extension (`src/`): popup UI, background/content scripts, native messaging bridge
+- Native host (`native/`): wallet engine, chain adapters, MCP server, native messaging handlers
+
+Communication model:
+
+1. Extension sends RPC via Chrome Native Messaging to native host.
+2. Native host handles secure wallet operations and exposes MCP tools/resources for AI clients.
+3. MCP is available over Streamable HTTP and SSE endpoints.
+
+## CI
+
+`/.github/workflows/ci.yml` provides:
+
+- Native host build + lint + non-integration tests
+- Extension lint + build + unit tests
+- Optional manual runs for integration tests and Playwright e2e tests (`workflow_dispatch`)
+
+## Repo Layout
+
+- `src/`: extension source code
+- `native/`: Go native host source code and Makefile
+- `e2e/`: Playwright e2e tests
+- `docs/`: requirements/design/task docs

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build",
     "zip": "mkdir -p dist-zip && VERSION=${npm_package_version} && zip -r dist-zip/algonius-wallet-extension-v$VERSION.zip dist/",
     "preview": "vite preview",
     "test": "vitest",

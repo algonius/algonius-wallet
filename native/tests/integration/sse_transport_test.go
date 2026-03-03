@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -20,7 +23,7 @@ func TestSSETransportEndpoints(t *testing.T) {
 
 	// Test that the unified server provides both HTTP and SSE endpoints
 	// by testing with different client types
-	
+
 	t.Run("StreamableHTTPClient", func(t *testing.T) {
 		// Test existing HTTP streamable client still works
 		client := testEnv.GetMcpClient()
@@ -57,7 +60,7 @@ func TestSSETransportEndpoints(t *testing.T) {
 
 		// Verify the content is the same as HTTP client
 		require.True(t, len(result.Contents) > 0, "resource should have content")
-		
+
 		// Cast to TextResourceContents to access URI and Text
 		if textContent, ok := result.Contents[0].(mcp.TextResourceContents); ok {
 			require.Equal(t, "chains://supported", textContent.URI, "URI should match")
@@ -109,14 +112,14 @@ func TestSSETransportCompatibility(t *testing.T) {
 
 	// Test that both transport types can work simultaneously
 	baseURL := testEnv.GetBaseURL()
-	
+
 	// Create both clients
 	httpClient := testEnv.GetMcpClient()
 	sseClient := env.NewMcpSSEClient(baseURL)
 
 	// Initialize both clients
 	require.NoError(t, httpClient.Initialize(ctx), "failed to initialize HTTP client")
-	
+
 	require.NoError(t, sseClient.Connect(ctx), "failed to connect SSE client")
 	defer sseClient.Disconnect()
 	require.NoError(t, sseClient.Initialize(ctx), "failed to initialize SSE client")
@@ -130,15 +133,15 @@ func TestSSETransportCompatibility(t *testing.T) {
 
 	// Verify both get the same data
 	require.Equal(t, len(httpResult.Contents), len(sseResult.Contents), "both clients should get same number of contents")
-	
+
 	if len(httpResult.Contents) > 0 && len(sseResult.Contents) > 0 {
 		// Cast both to TextResourceContents for comparison
 		httpText, httpOk := httpResult.Contents[0].(mcp.TextResourceContents)
 		sseText, sseOk := sseResult.Contents[0].(mcp.TextResourceContents)
-		
+
 		require.True(t, httpOk, "HTTP result should be TextResourceContents")
 		require.True(t, sseOk, "SSE result should be TextResourceContents")
-		
+
 		require.Equal(t, httpText.URI, sseText.URI, "both clients should get same URI")
 		require.Equal(t, httpText.Text, sseText.Text, "both clients should get same content")
 	}

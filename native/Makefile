@@ -6,6 +6,8 @@ MANIFEST_NAME=ai.algonius.wallet.json
 PKG_PATH=./cmd
 INSTALL_DIR=/usr/local/bin
 MANIFEST_DIR=/etc/opt/chrome/native-messaging-hosts
+INTEGRATION_TAG=integration
+INTEGRATION_TEST_TIMEOUT?=10m
 
 # Build targets
 all: build
@@ -19,31 +21,31 @@ lint:
 	@golangci-lint run --config .golangci.yml ./...
 
 unit-test:
-	@echo "Running tests..."
-	go test -v $(PKG_PATH)/... ./pkg/...
+	@echo "Running non-integration tests..."
+	go test -v ./...
 
 integration-test:
 	@echo "Running integration tests..."
 	@echo "Building binary first..."
 	@$(MAKE) build
 	@echo "Running core integration tests..."
-	DEX_MOCK_MODE=true go test -v -timeout=3m -run "TestChainsSupportedResource$$|TestCreateWalletTool$$|TestGetBalanceTool$$|TestWalletStatusResource$$|TestApproveTransactionTool$$" ./tests/integration/
+	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=3m -run "TestChainsSupportedResource$$|TestCreateWalletTool$$|TestGetBalanceTool$$|TestWalletStatusResource$$|TestApproveTransactionTool$$" ./tests/integration/
 
 integration-test-extended:
 	@echo "Running extended integration tests..."
 	@echo "Building binary first..."
 	@$(MAKE) build
 	@echo "Running additional working integration tests..."
-	DEX_MOCK_MODE=true go test -v -timeout=5m -run "TestChains|TestCreate|TestGetBalance|TestWalletStatus|TestGetPendingTransactions|TestSendTransaction|TestSwap|TestImport|TestSSE" ./tests/integration/
+	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=5m -run "TestChains|TestCreate|TestGetBalance|TestWalletStatus|TestGetPendingTransactions|TestSendTransaction|TestSwap|TestImport|TestSSE" ./tests/integration/
 
 integration-test-all:
 	@echo "Running ALL integration tests..."
 	@echo "Building binary first..."
 	@$(MAKE) build
-	@echo "Running all tests with extended timeout..."
-	DEX_MOCK_MODE=true go test -v -timeout=10m ./tests/integration/...
+	@echo "Running all tagged integration tests with timeout $(INTEGRATION_TEST_TIMEOUT)..."
+	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=$(INTEGRATION_TEST_TIMEOUT) ./tests/integration/...
 
-test: unit-test integration-test
+test: unit-test
 
 run:
 	@echo "Running native host..."
@@ -105,7 +107,7 @@ help:
 	@echo "  integration-test          - Run core integration tests"
 	@echo "  integration-test-extended - Run extended integration tests"
 	@echo "  integration-test-all      - Run ALL integration tests"
-	@echo "  test                      - Run both unit and core integration tests"
+	@echo "  test                      - Run non-integration tests only"
 	@echo "  lint                      - Run linter"
 	@echo "  run                       - Run the native host"
 	@echo "  install                   - Install the native host"
