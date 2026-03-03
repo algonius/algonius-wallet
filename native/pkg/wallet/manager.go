@@ -527,8 +527,10 @@ func (wm *WalletManager) SendTransaction(ctx context.Context, chain, from, to, a
 		return "", errors.New("from, to, and amount are required")
 	}
 
+	normalizedChain := NormalizeChain(chain)
+
 	// Additional security checks
-	if err := wm.validateTransactionSecurity(from, to, amount, token); err != nil {
+	if err := wm.validateTransactionSecurity(normalizedChain, from, to, amount, token); err != nil {
 		return "", fmt.Errorf("security validation failed: %w", err)
 	}
 
@@ -541,18 +543,24 @@ func (wm *WalletManager) SendTransaction(ctx context.Context, chain, from, to, a
 	// TODO: In a real implementation, we would need to retrieve the private key
 	// For now, we'll use a mock private key since wallet storage is not fully implemented
 	mockPrivateKey := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	if normalizedChain == "solana" {
+		// Solana path expects base58 private key format.
+		mockPrivateKey = "11111111111111111111111111111111"
+	}
 
 	// Send the transaction using the chain implementation
 	return chainImpl.SendTransaction(ctx, from, to, amount, token, mockPrivateKey)
 }
 
 // validateTransactionSecurity performs basic security validations
-func (wm *WalletManager) validateTransactionSecurity(from, to, amount, token string) error {
+func (wm *WalletManager) validateTransactionSecurity(chain, from, to, amount, token string) error {
+	normalizedChain := NormalizeChain(chain)
+
 	// Validate addresses
-	if !wm.isValidAddress(from) {
+	if !wm.isValidAddress(normalizedChain, from) {
 		return errors.New("invalid from address")
 	}
-	if !wm.isValidAddress(to) {
+	if !wm.isValidAddress(normalizedChain, to) {
 		return errors.New("invalid to address")
 	}
 
@@ -562,7 +570,7 @@ func (wm *WalletManager) validateTransactionSecurity(from, to, amount, token str
 	}
 
 	// Prevent sending to zero address
-	if to == "0x0000000000000000000000000000000000000000" {
+	if normalizedChain != "solana" && to == "0x0000000000000000000000000000000000000000" {
 		return errors.New("cannot send to zero address")
 	}
 
@@ -580,17 +588,26 @@ func (wm *WalletManager) validateTransactionSecurity(from, to, amount, token str
 	return nil
 }
 
-// isValidAddress checks if an address is valid (currently supports Ethereum-style addresses)
-func (wm *WalletManager) isValidAddress(address string) bool {
-	// Basic validation for Ethereum-style addresses
-	if len(address) != 42 {
+// isValidAddress checks whether an address is valid for the given chain.
+func (wm *WalletManager) isValidAddress(chain, address string) bool {
+	switch NormalizeChain(chain) {
+	case "ethereum", "bsc":
+		if len(address) != 42 {
+			return false
+		}
+		return strings.HasPrefix(address, "0x")
+	case "solana":
+		if address == "" {
+			return false
+		}
+		decoded, err := base58.Decode(address)
+		if err != nil {
+			return false
+		}
+		return len(decoded) == 32
+	default:
 		return false
 	}
-	if !strings.HasPrefix(address, "0x") {
-		return false
-	}
-	// Could add checksum validation here
-	return true
 }
 
 // validateAmount performs basic amount validation
