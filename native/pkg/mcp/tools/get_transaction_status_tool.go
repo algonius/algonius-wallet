@@ -17,8 +17,8 @@ import (
 
 // GetTransactionStatusTool implements the MCP "get_transaction_status" tool for checking blockchain transaction status.
 type GetTransactionStatusTool struct {
-	manager            wallet.IWalletManager
-	logger             *zap.Logger
+	manager             wallet.IWalletManager
+	logger              *zap.Logger
 	detectChainFromHash func(txHash string) string
 	getChainInterface   func(chainName string) (chain.IChain, error)
 }
@@ -88,6 +88,15 @@ func (t *GetTransactionStatusTool) GetHandler() server.ToolHandlerFunc {
 			t.logger.Debug("Detected chain from transaction hash",
 				zap.String("transaction_hash", txHash),
 				zap.String("detected_chain", chainName))
+		} else {
+			normalizedChain, normalizeErr := toolutils.NormalizeChainName(chainName)
+			if normalizeErr != nil {
+				if appErr, ok := normalizeErr.(*errors.Error); ok {
+					return toolutils.FormatErrorResult(appErr), nil
+				}
+				return toolutils.FormatErrorResult(errors.ValidationError("chain", normalizeErr.Error())), nil
+			}
+			chainName = normalizedChain
 		}
 
 		// Get chain interface
@@ -98,16 +107,18 @@ func (t *GetTransactionStatusTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Check transaction status on blockchain
-		confirmation, err := chainInterface.ConfirmTransaction(ctx, txHash, 1) // Require at least 1 confirmation
+		confirmation, err := toolutils.ExecuteWithRetry(ctx, toolutils.DefaultRetryPolicy, func(attemptCtx context.Context) (*chain.TransactionConfirmation, error) {
+			return chainInterface.ConfirmTransaction(attemptCtx, txHash, 1) // Require at least 1 confirmation
+		})
 		if err != nil {
 			t.logger.Error("Failed to check transaction status",
 				zap.String("transaction_hash", txHash),
 				zap.String("chain", chainName),
 				zap.Error(err))
-			
+
 			// Try to determine if it's a "not found" error
-			if strings.Contains(strings.ToLower(err.Error()), "not found") || 
-			   strings.Contains(strings.ToLower(err.Error()), "does not exist") {
+			if strings.Contains(strings.ToLower(err.Error()), "not found") ||
+				strings.Contains(strings.ToLower(err.Error()), "does not exist") {
 				markdown := fmt.Sprintf("### Transaction Status: Not Found ❓\n\n"+
 					"- **Transaction Hash**: `%s`\n"+
 					"- **Chain**: `%s`\n"+
@@ -116,8 +127,8 @@ func (t *GetTransactionStatusTool) GetHandler() server.ToolHandlerFunc {
 					txHash, chainName)
 				return mcp.NewToolResultText(markdown), nil
 			}
-			
-			toolErr := errors.InternalError("check transaction status", err)
+
+			toolErr := toolutils.ClassifyError("check transaction status", err)
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
@@ -168,17 +179,17 @@ func detectChainFromHash(txHash string) string {
 	if len(txHash) == 66 && strings.HasPrefix(txHash, "0x") {
 		return "ethereum"
 	}
-	
+
 	// Solana-style hashes are base58 encoded and typically 88 characters long
 	// This is a simple heuristic - a more robust implementation would validate base58
 	if len(txHash) >= 80 && len(txHash) <= 90 && !strings.Contains(txHash, "0x") {
 		return "solana"
 	}
-	
+
 	// BSC also uses Ethereum-style hashes
 	// We'll default to ethereum for 0x prefixed hashes
 	// A more sophisticated implementation might need additional context
-	
+
 	return "" // Unable to detect
 }
 
