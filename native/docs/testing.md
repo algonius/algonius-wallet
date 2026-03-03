@@ -206,4 +206,40 @@ test-integration-coverage: build
 
 ---
 
+## 5. CloudBank 集成验证（KR4）
+
+为验证 algonius-wallet 在外部 Web3 项目中的可复用性，新增 CloudBank 集成验证用例（`native/tests/integration/cloudbank_mcp_integration_test.go`），覆盖以下链路：
+
+- `create_wallet`（BSC）
+- `fund`（CloudBank faucet 资助步骤，支持 API 触发；未配置时使用 mock 资助标记）
+- `sign_message`
+- `send_transaction`
+- `get_transaction_status`
+
+并增加稳定性与恢复验证：
+
+- 连续多次调用（`sign_message` / `get_balance`）可靠性
+- 错误恢复（非法地址触发错误后，后续合法交易可继续成功）
+
+### 运行方式
+
+```bash
+cd native
+make cloudbank-integration-test
+```
+
+### 可选真实 faucet 配置
+
+可通过环境变量将资助步骤接入 CloudBank 外部 faucet API：
+
+```bash
+export CLOUDBANK_FAUCET_API_URL="https://<your-cloudbank-faucet-endpoint>"
+cd native
+make cloudbank-integration-test
+```
+
+若未配置该变量，测试默认使用 mock 资助标记，适用于 CI 与离线环境。
+
+---
+
 如需具体测试模板或用例设计方案，可进一步细化每个模块的测试目标与示例代码。

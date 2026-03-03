@@ -43,6 +43,7 @@ make run
 - Native non-integration tests: `cd native && make unit-test`
 - Native integration tests: `cd native && make integration-test-all`
 - Native transaction-flow e2e tests: `cd native && make e2e-test`
+- CloudBank MCP integration validation: `cd native && make cloudbank-integration-test`
   - Integration tests are behind build tag `integration`
   - Default `go test ./...` will not execute integration tests
 
@@ -103,6 +104,7 @@ Communication model:
 - Extension lint + build + unit tests
 - Optional manual runs for integration tests and Playwright e2e tests (`workflow_dispatch`)
 - Optional manual run for native MCP e2e flow tests: `run_native_e2e=true`
+- Optional manual run for CloudBank integration validation: `run_native_cloudbank_integration=true`
 
 ## Repo Layout
 
@@ -110,3 +112,4 @@ Communication model:
 - `native/`: Go native host source code and Makefile
 - `e2e/`: Playwright e2e tests
 - `docs/`: requirements/design/task docs
+  - CloudBank integration guide: `docs/cloudbank-mcp-integration-guide.md`

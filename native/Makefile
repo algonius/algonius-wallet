@@ -52,6 +52,13 @@ e2e-test:
 	@echo "Running E2E tests with mock provider mode..."
 	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=12m -run "TestE2ETransactionFlow" ./tests/integration/
 
+cloudbank-integration-test:
+	@echo "Running CloudBank MCP integration validation..."
+	@echo "Building binary first..."
+	@$(MAKE) build
+	@echo "Running CloudBank integration tests with mock provider mode..."
+	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=12m -run "TestCloudBankMCPIntegration" ./tests/integration/
+
 test: unit-test
 
 run:
@@ -82,7 +89,7 @@ uninstall:
 	sudo rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 	@echo "Native host uninstalled"
 
-.PHONY: all build unit-test integration-test integration-test-extended integration-test-all e2e-test test run clean install uninstall lint kill help
+.PHONY: all build unit-test integration-test integration-test-extended integration-test-all e2e-test cloudbank-integration-test test run clean install uninstall lint kill help
 
 kill:
 	@echo "Killing any running instances of algonius-wallet-host..."
@@ -115,6 +122,7 @@ help:
 	@echo "  integration-test-extended - Run extended integration tests"
 	@echo "  integration-test-all      - Run ALL integration tests"
 	@echo "  e2e-test                  - Run multi-chain transaction flow E2E tests"
+	@echo "  cloudbank-integration-test - Run CloudBank MCP integration validation"
 	@echo "  test                      - Run non-integration tests only"
 	@echo "  lint                      - Run linter"
 	@echo "  run                       - Run the native host"
