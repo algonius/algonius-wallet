@@ -176,4 +176,34 @@ test-integration-coverage: build
 
 ---
 
+## 4. E2E 交易流程测试（KR3）
+
+为验证 MCP 工具端到端可用性，新增了多链交易流程 E2E 用例（位于 `native/tests/integration/e2e_transaction_flow_test.go`）：
+
+- ETH 流程：`create_wallet -> get_balance -> sign_message -> send_transaction -> get_transaction_status -> get_transaction_history`
+- BSC 流程：同上
+- SOL 流程：同上（含 base58 地址）
+- 每条链都包含一个常见错误路径（`send_transaction` 非法 from 地址）
+
+### 运行方式
+
+- 仅跑 KR3 E2E：
+  ```bash
+  cd native
+  make e2e-test
+  ```
+- 全量 integration：
+  ```bash
+  cd native
+  make integration-test-all
+  ```
+
+### 测试配置（可复用）
+
+- 测试环境通过 `env.TestConfig{MockMode: true}` 启动 native-host
+- 使用 `DEX_MOCK_MODE=true` 保证外部依赖最小化，适合作为其他 Web3 项目的参考模板
+- 用例结构采用“链用例参数化 + 公共流程函数”，便于扩展到更多链或新工具
+
+---
+
 如需具体测试模板或用例设计方案，可进一步细化每个模块的测试目标与示例代码。

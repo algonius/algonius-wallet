@@ -45,6 +45,13 @@ integration-test-all:
 	@echo "Running all tagged integration tests with timeout $(INTEGRATION_TEST_TIMEOUT)..."
 	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=$(INTEGRATION_TEST_TIMEOUT) ./tests/integration/...
 
+e2e-test:
+	@echo "Running native E2E transaction flow tests..."
+	@echo "Building binary first..."
+	@$(MAKE) build
+	@echo "Running E2E tests with mock provider mode..."
+	DEX_MOCK_MODE=true go test -tags=$(INTEGRATION_TAG) -v -timeout=12m -run "TestE2ETransactionFlow" ./tests/integration/
+
 test: unit-test
 
 run:
@@ -75,7 +82,7 @@ uninstall:
 	sudo rm -f $(MANIFEST_DIR)/$(MANIFEST_NAME)
 	@echo "Native host uninstalled"
 
-.PHONY: all build unit-test integration-test integration-test-extended integration-test-all test run clean install uninstall lint kill help
+.PHONY: all build unit-test integration-test integration-test-extended integration-test-all e2e-test test run clean install uninstall lint kill help
 
 kill:
 	@echo "Killing any running instances of algonius-wallet-host..."
@@ -107,6 +114,7 @@ help:
 	@echo "  integration-test          - Run core integration tests"
 	@echo "  integration-test-extended - Run extended integration tests"
 	@echo "  integration-test-all      - Run ALL integration tests"
+	@echo "  e2e-test                  - Run multi-chain transaction flow E2E tests"
 	@echo "  test                      - Run non-integration tests only"
 	@echo "  lint                      - Run linter"
 	@echo "  run                       - Run the native host"
