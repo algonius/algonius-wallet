@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_native_e2e:
+        description: "Run native MCP transaction-flow e2e tests"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   # Build and test native host (non-integration)
@@ -128,6 +133,37 @@ jobs:
 
       - name: Run integration tests
         run: make integration-test-all INTEGRATION_TEST_TIMEOUT=15m
+
+  # Native MCP E2E (transaction flow) is opt-in.
+  native-e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_e2e == 'true' }}
+    runs-on: ubuntu-latest
+    needs: [native-host]
+    defaults:
+      run:
+        working-directory: native
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run native E2E tests
+        run: make e2e-test
 
   # E2E tests that require both native host and extension
   e2e-tests:
