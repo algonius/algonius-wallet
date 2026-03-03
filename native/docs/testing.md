@@ -40,6 +40,9 @@
 ## 2. 集成测试（Integration Test）
 
 - **位置**：统一放置于 native/tests/integration 目录下
+- **运行方式**：所有 `*_test.go` 使用 `integration` build tag，仅在显式指定 tag 时执行
+  - `go test ./...`：默认不会执行 integration tests
+  - `go test -tags=integration ./tests/integration/...`：执行 integration tests
 - **原则**：
   - 跨模块/跨进程的功能链路测试，如 MCP 工具端到端调用、Native Messaging 与浏览器扩展交互、事件推送全链路等。
   - 可用 Go 的 testing 包，也可结合 shell 脚本、模拟外部进程（如 mock browser extension/AI Agent）。
@@ -159,8 +162,8 @@ test-integration-coverage: build
 
 ## 3. 组织与运行建议
 
-- **单元测试**：`go test ./...` 可自动递归运行所有 \*\_test.go
-- **集成测试**：可单独运行 `go test ./tests/integration/...`，或在 CI/CD 脚本中分阶段执行
+- **单元测试**：`go test ./...` 可自动递归运行所有非 integration 标记测试
+- **集成测试**：`go test -tags=integration ./tests/integration/...`（建议在 CI 中作为可选阶段执行）
 - **Mock/Stub**：推荐使用 testify/mock、Go 标准库 testing 等工具
 - **覆盖率**：
   - 单元测试覆盖率要求 90% 及以上，集成测试建议生成覆盖率报告，便于质量跟踪

@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -12,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
 
 func TestGetPendingTransactionsTool(t *testing.T) {
 	ctx := context.Background()
@@ -145,7 +147,7 @@ func TestGetPendingTransactionsToolContentValidation(t *testing.T) {
 	// Validate response structure
 	require.NotNil(t, result.Content, "result should have content")
 	require.Len(t, result.Content, 1, "result should have one content item")
-	
+
 	// Validate markdown content format
 	markdown := getTextContent(result)
 	require.NotEmpty(t, markdown, "should have text content")
@@ -274,7 +276,7 @@ func TestGetPendingTransactionsToolFilterValidation(t *testing.T) {
 		"0xffffffffffffffffffffffffffffffffffffffff",
 		"invalid_address",
 		"0x123", // Short address
-		"",     // Empty address
+		"",      // Empty address
 	}
 	for i, address := range addressFilters {
 		t.Run(fmt.Sprintf("address_%d", i), func(t *testing.T) {
@@ -323,7 +325,7 @@ func TestGetPendingTransactionsToolPerformance(t *testing.T) {
 	for i := 0; i < conCurrentRequests; i++ {
 		go func(id int) {
 			args := map[string]interface{}{
-				"limit": 5,
+				"limit":  5,
 				"offset": id,
 			}
 			result, err := client.CallTool("get_pending_transactions", args)
@@ -478,7 +480,7 @@ func TestGetPendingTransactionsToolDataConsistency(t *testing.T) {
 	if len(page1Result.Content) > 0 && len(page2Result.Content) > 0 {
 		page1Content := getTextContent(page1Result)
 		page2Content := getTextContent(page2Result)
-		
+
 		// If both pages have transactions, they should be different
 		if strings.Contains(page1Content, "Transaction 1") && strings.Contains(page2Content, "Transaction 1") {
 			// Both show "Transaction 1" but content should be different due to pagination

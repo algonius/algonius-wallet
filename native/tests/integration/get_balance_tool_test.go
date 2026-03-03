@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -42,14 +45,14 @@ func TestGetBalanceTool(t *testing.T) {
 		result, err := client.CallTool("get_balance", args)
 		require.NoError(t, err, "failed to call get_balance tool for BNB")
 		require.NotNil(t, result, "get_balance tool result should not be nil for BNB")
-		
+
 		// Log result for debugging
 		t.Logf("BNB Balance Result: IsError=%v, Content=%+v", result.IsError, result.Content)
-		
+
 		require.False(t, result.IsError, "should successfully query BNB balance")
 	})
 
-	// Test Solana native token (SOL) - should work with Solana addresses  
+	// Test Solana native token (SOL) - should work with Solana addresses
 	t.Run("Solana_SOL_Balance", func(t *testing.T) {
 		args := map[string]interface{}{
 			"address": "11111111111111111111111111111112", // Valid Solana address format
@@ -58,13 +61,13 @@ func TestGetBalanceTool(t *testing.T) {
 		result, err := client.CallTool("get_balance", args)
 		require.NoError(t, err, "failed to call get_balance tool for SOL")
 		require.NotNil(t, result, "get_balance tool result should not be nil for SOL")
-		
+
 		// Log result for debugging
 		t.Logf("SOL Balance Result: IsError=%v, Content=%+v", result.IsError, result.Content)
-		
+
 		require.False(t, result.IsError, "should successfully query SOL balance")
 	})
-	
+
 	// Test case that should fail: unsupported token on wrong chain
 	t.Run("Unsupported_Token_Should_Fail", func(t *testing.T) {
 		args := map[string]interface{}{
@@ -74,10 +77,10 @@ func TestGetBalanceTool(t *testing.T) {
 		result, err := client.CallTool("get_balance", args)
 		require.NoError(t, err, "call should succeed but return error result")
 		require.NotNil(t, result, "result should not be nil")
-		
-		// Log result for debugging  
+
+		// Log result for debugging
 		t.Logf("Unsupported Token Result: IsError=%v, Content=%+v", result.IsError, result.Content)
-		
+
 		require.True(t, result.IsError, "should return error for unsupported token")
 	})
 
