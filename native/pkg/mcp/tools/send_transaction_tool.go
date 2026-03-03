@@ -3,7 +3,6 @@ package tools
 
 import (
 	"context"
-	
 	"fmt"
 
 	"github.com/algonius/algonius-wallet/native/pkg/errors"
@@ -29,7 +28,7 @@ func (t *SendTransactionTool) GetMeta() mcp.Tool {
 		mcp.WithDescription("Send a blockchain transaction"),
 		mcp.WithString("chain",
 			mcp.Required(),
-			mcp.Description("Chain identifier (ethereum, bsc)"),
+			mcp.Description("Chain identifier: ethereum|eth, bsc|binance, solana|sol"),
 		),
 		mcp.WithString("from",
 			mcp.Required(),
@@ -65,6 +64,13 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 			toolErr := errors.MissingRequiredFieldError("chain")
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
+		normalizedChain, err := toolutils.NormalizeChainName(chain)
+		if err != nil {
+			if appErr, ok := err.(*errors.Error); ok {
+				return toolutils.FormatErrorResult(appErr), nil
+			}
+			return toolutils.FormatErrorResult(errors.ValidationError("chain", err.Error())), nil
+		}
 
 		from, err := req.RequireString("from")
 		if err != nil {
@@ -89,41 +95,46 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		gasLimit := req.GetFloat("gas_limit", 0)
 		gasPrice := req.GetString("gas_price", "")
 
-		// Validate chain support
-		if chain != "ethereum" && chain != "bsc" && chain != "ETH" {
-			toolErr := errors.TokenNotSupportedError(chain, "all")
-			return toolutils.FormatErrorResult(toolErr), nil
-		}
-
 		// Perform gas estimation if not provided
 		var finalGasLimit float64 = gasLimit
 		var finalGasPrice string = gasPrice
 
 		if gasLimit == 0 || gasPrice == "" {
-			estimatedGasLimit, estimatedGasPrice, err := t.manager.EstimateGas(ctx, chain, from, to, amount, token)
+			estimatedGas, err := toolutils.ExecuteWithRetry(ctx, toolutils.DefaultRetryPolicy, func(attemptCtx context.Context) (struct {
+				gasLimit uint64
+				gasPrice string
+			}, error) {
+				limit, price, estimateErr := t.manager.EstimateGas(attemptCtx, normalizedChain, from, to, amount, token)
+				return struct {
+					gasLimit uint64
+					gasPrice string
+				}{gasLimit: limit, gasPrice: price}, estimateErr
+			})
 			if err != nil {
-				toolErr := errors.InternalError("gas estimation", err)
+				toolErr := toolutils.ClassifyError("gas estimation", err)
 				return toolutils.FormatErrorResult(toolErr), nil
 			}
 
 			if gasLimit == 0 {
-				finalGasLimit = float64(estimatedGasLimit)
+				finalGasLimit = float64(estimatedGas.gasLimit)
 			}
 			if gasPrice == "" {
-				finalGasPrice = estimatedGasPrice
+				finalGasPrice = estimatedGas.gasPrice
 			}
 		}
 
 		// Send the transaction
-		txHash, err := t.manager.SendTransaction(ctx, chain, from, to, amount, token)
+		txHash, err := toolutils.ExecuteWithRetry(ctx, toolutils.DefaultRetryPolicy, func(attemptCtx context.Context) (string, error) {
+			return t.manager.SendTransaction(attemptCtx, normalizedChain, from, to, amount, token)
+		})
 		if err != nil {
-			toolErr := errors.InternalError("send transaction", err)
+			toolErr := toolutils.ClassifyError("send transaction", err)
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
 		// Format success response
 		markdown := "### Transaction Sent\n\n" +
-			"- **Chain**: `" + chain + "`\n" +
+			"- **Chain**: `" + normalizedChain + "`\n" +
 			"- **From**: `" + from + "`\n" +
 			"- **To**: `" + to + "`\n" +
 			"- **Amount**: `" + amount + "`\n"
@@ -146,4 +157,3 @@ func (t *SendTransactionTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
-

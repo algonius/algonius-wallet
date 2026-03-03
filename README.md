@@ -65,13 +65,21 @@ Source of truth:
 - `create_wallet`
 - `get_balance`
 - `send_transaction`
+- `estimate_gas`
 - `approve_transaction`
 - `swap_tokens`
 - `get_pending_transactions`
 - `get_transaction_history`
+- `deploy_contract`
+- `call_contract`
 - `simulate_transaction`
 - `sign_message`
 - `get_transaction_status`
+
+Runtime behavior:
+- Chain aliases are normalized (`eth`/`ethereum`, `bsc`/`binance`, `sol`/`solana`)
+- Tool RPC paths use timeout + retry wrappers for transient failures
+- Errors follow standardized code/message/details/suggestion format
 
 ## Architecture Overview
 

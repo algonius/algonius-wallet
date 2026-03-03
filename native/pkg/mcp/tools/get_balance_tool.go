@@ -27,11 +27,11 @@ func (t *GetBalanceTool) GetMeta() mcp.Tool {
 	description := "Query wallet balance for native tokens and contracts. " +
 		"Supported native tokens: ETH (Ethereum), BNB (BSC), SOL (Solana). " +
 		"Also supports ERC-20/BEP-20 contract addresses."
-	
+
 	tokenDescription := "Token identifier or contract address. " +
 		"Native tokens: ETH, ETHER, BNB, BINANCE, SOL, SOLANA. " +
 		"Contract addresses: 0x... (Ethereum/BSC) or base58 (Solana)"
-	
+
 	return mcp.NewTool("get_balance",
 		mcp.WithDescription(description),
 		mcp.WithString("address",
@@ -73,9 +73,11 @@ func (t *GetBalanceTool) GetHandler() server.ToolHandlerFunc {
 			}
 		}
 
-		balance, err := t.manager.GetBalance(ctx, address, token)
+		balance, err := toolutils.ExecuteWithRetry(ctx, toolutils.DefaultRetryPolicy, func(attemptCtx context.Context) (string, error) {
+			return t.manager.GetBalance(attemptCtx, address, token)
+		})
 		if err != nil {
-			toolErr := errors.InternalError("get balance", err)
+			toolErr := toolutils.ClassifyError("get balance", err)
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
@@ -86,4 +88,3 @@ func (t *GetBalanceTool) GetHandler() server.ToolHandlerFunc {
 		return mcp.NewToolResultText(markdown), nil
 	}
 }
-

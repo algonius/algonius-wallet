@@ -56,6 +56,20 @@ func TestSendTransactionTool(t *testing.T) {
 	require.NoError(t, err, "failed to call send_transaction tool for BSC")
 	require.NotNil(t, bscResult, "send_transaction tool result should not be nil for BSC")
 
+	// Test Solana transaction (alias path: sol -> solana)
+	solArgs := map[string]interface{}{
+		"chain":  "sol",
+		"from":   "FnVyf9f7hFmA6N5HtV6nQWmvMRGsiE9zraFMvx6bMpiK",
+		"to":     "5oNDL3swdJJF1g9DzJiZ4ynHXgszjAEpUkxVYejchzrY",
+		"amount": "0.2",
+		"token":  "SOL",
+	}
+	solResult, err := client.CallTool("send_transaction", solArgs)
+	require.NoError(t, err, "failed to call send_transaction tool for Solana alias")
+	require.NotNil(t, solResult, "send_transaction tool result should not be nil for Solana")
+	require.False(t, solResult.IsError, "send_transaction Solana path should succeed")
+	require.Contains(t, getTextContent(solResult), "**Chain**: `solana`")
+
 	// Test ERC-20 token transaction
 	erc20Args := map[string]interface{}{
 		"chain":  "ethereum",

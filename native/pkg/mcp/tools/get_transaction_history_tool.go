@@ -74,9 +74,11 @@ func (t *GetTransactionHistoryTool) GetHandler() server.ToolHandlerFunc {
 		}
 
 		// Get transaction history from wallet manager
-		transactions, err := t.manager.GetTransactionHistory(ctx, address, fromBlock, toBlock, limit, 0)
+		transactions, err := toolutils.ExecuteWithRetry(ctx, toolutils.DefaultRetryPolicy, func(attemptCtx context.Context) ([]*wallet.HistoricalTransaction, error) {
+			return t.manager.GetTransactionHistory(attemptCtx, address, fromBlock, toBlock, limit, 0)
+		})
 		if err != nil {
-			toolErr := errors.InternalError("get transaction history", err)
+			toolErr := toolutils.ClassifyError("get transaction history", err)
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 
@@ -122,7 +124,7 @@ func (t *GetTransactionHistoryTool) GetHandler() server.ToolHandlerFunc {
 				if len(tx.TokenTransfers) > 0 {
 					markdown += "- **Token Transfers**:\n"
 					for j, transfer := range tx.TokenTransfers {
-						markdown += fmt.Sprintf("  - Transfer %d: `%s` %s from `%s` to `%s`\n", 
+						markdown += fmt.Sprintf("  - Transfer %d: `%s` %s from `%s` to `%s`\n",
 							j+1, transfer.Value, transfer.TokenSymbol, transfer.From, transfer.To)
 					}
 				}

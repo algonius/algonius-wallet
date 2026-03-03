@@ -81,12 +81,14 @@ func (t *SignMessageTool) GetHandler() server.ToolHandlerFunc {
 			zap.Bool("is_solana_raw_bytes", len(message) > 20 && message[:20] == "__SOLANA_RAW_BYTES__"))
 
 		// Sign the message using the wallet manager
-		signature, err := t.manager.SignMessage(ctx, address, message)
+		signature, err := toolutils.ExecuteWithRetry(ctx, toolutils.DefaultRetryPolicy, func(attemptCtx context.Context) (string, error) {
+			return t.manager.SignMessage(attemptCtx, address, message)
+		})
 		if err != nil {
 			t.logger.Error("Failed to sign message",
 				zap.String("address", address),
 				zap.Error(err))
-			toolErr := errors.InternalError("sign message", err)
+			toolErr := toolutils.ClassifyError("sign message", err)
 			return toolutils.FormatErrorResult(toolErr), nil
 		}
 

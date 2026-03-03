@@ -42,12 +42,12 @@ func makeTimestamp() int64 {
 // setupUnifiedMCPServer creates a unified HTTP server supporting multiple MCP transport protocols
 func setupUnifiedMCPServer(mcpServer *server.MCPServer, port string) *http.Server {
 	mux := http.NewServeMux()
-	
+
 	// Streamable HTTP - compatible with existing clients
-	streamableServer := server.NewStreamableHTTPServer(mcpServer, 
+	streamableServer := server.NewStreamableHTTPServer(mcpServer,
 		server.WithEndpointPath("/mcp"))
 	mux.Handle("/mcp", streamableServer)
-	
+
 	// Pure SSE - compatible with Cline and other SSE-only clients
 	sseServer := server.NewSSEServer(mcpServer,
 		server.WithStaticBasePath("/mcp"),
@@ -56,7 +56,7 @@ func setupUnifiedMCPServer(mcpServer *server.MCPServer, port string) *http.Serve
 		server.WithUseFullURLForMessageEndpoint(false)) // Use relative paths
 	mux.Handle("/mcp/sse", sseServer.SSEHandler())
 	mux.Handle("/mcp/message", sseServer.MessageHandler())
-	
+
 	return &http.Server{
 		Addr:    port,
 		Handler: mux,
@@ -67,7 +67,7 @@ func main() {
 	// Define command line flags
 	killFlag := flag.Bool("kill", false, "Kill any existing instances of the native host")
 	flag.Parse()
-	
+
 	// If kill flag is set, kill existing instances and exit
 	if *killFlag {
 		if err := process.KillExistingProcess(); err != nil {
@@ -77,7 +77,7 @@ func main() {
 		os.Stderr.WriteString("Successfully killed existing instance (if any)\n")
 		os.Exit(0)
 	}
-	
+
 	// Try to acquire PID file lock to prevent multiple instances
 	// PID file location now respects ALGONIUS_WALLET_HOME environment variable
 	locked, err := process.LockPIDFile()
@@ -85,12 +85,12 @@ func main() {
 		os.Stderr.WriteString("Failed to acquire PID file lock: " + err.Error() + "\n")
 		os.Exit(1)
 	}
-	
+
 	if !locked {
 		os.Stderr.WriteString("Another instance of Algonius Native Host is already running\n")
 		os.Exit(1)
 	}
-	
+
 	// Ensure we unlock the PID file when the program exits
 	defer func() {
 		if err := process.UnlockPIDFile(); err != nil {
@@ -109,7 +109,7 @@ func main() {
 	// Extract zap logger from the wrapper for configuration loading
 	zapLogger := logr.(*logger.ZapLogger).Logger
 
-	// Load configuration 
+	// Load configuration
 	appConfig, err := config.LoadConfigWithFallback(zapLogger)
 	if err != nil {
 		zapLogger.Error("Failed to load configuration", zap.Error(err))
@@ -129,7 +129,7 @@ func main() {
 
 	// Create shared wallet manager with configuration
 	walletManager := wallet.NewWalletManagerWithConfig(appConfig, dexAggregator, zapLogger)
-	
+
 	// Create EventBroadcaster for real-time events to AI Agents
 	eventBroadcaster := event.NewEventBroadcaster(zapLogger)
 
@@ -247,18 +247,18 @@ func main() {
 
 	// Create DEX aggregator with OKX and Direct providers
 	dexAggregator = dex.NewDEXAggregator(zapLogger)
-	
+
 	// Register Direct provider for backward compatibility
 	directProvider := providers.NewDirectProvider(zapLogger)
 	if err := dexAggregator.RegisterProvider(directProvider); err != nil {
 		logr.Error("Failed to register direct provider", zap.Error(err))
 	}
-	
+
 	// Check if we're in mock mode (for testing)
 	if os.Getenv("DEX_MOCK_MODE") == "true" {
 		// Register mock providers for testing
 		mockProvider := providers.NewMockProvider(providers.MockConfig{
-			Name: "MockOKX",
+			Name:            "MockOKX",
 			SupportedChains: []string{"1", "56", "501"},
 		}, zapLogger)
 		if err := dexAggregator.RegisterProvider(mockProvider); err != nil {
@@ -284,7 +284,7 @@ func main() {
 			logr.Info("OKX credentials not provided, skipping OKX provider registration")
 		}
 	}
-	
+
 	swapTokensToolNew := tools.NewSwapTokensToolWithAggregator(dexAggregator, zapLogger)
 	swapTokensToolNew.Register(s)
 
@@ -308,6 +308,15 @@ func main() {
 	getTransactionStatusTool := tools.NewGetTransactionStatusTool(walletManager, zapLogger)
 	mcp.RegisterTool(s, getTransactionStatusTool)
 
+	estimateGasTool := tools.NewEstimateGasTool(chainFactory)
+	mcp.RegisterTool(s, estimateGasTool)
+
+	deployContractTool := tools.NewDeployContractTool()
+	mcp.RegisterTool(s, deployContractTool)
+
+	callContractTool := tools.NewCallContractTool()
+	mcp.RegisterTool(s, callContractTool)
+
 	// Start unified MCP server with multiple transport protocols
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -318,7 +327,7 @@ func main() {
 			port = ":9444"
 		}
 		unifiedServer := setupUnifiedMCPServer(s, port)
-		logr.Info("Starting unified MCP server", 
+		logr.Info("Starting unified MCP server",
 			zap.String("port", port),
 			zap.Strings("endpoints", []string{"/mcp", "/mcp/sse", "/mcp/message"}))
 		if err := unifiedServer.ListenAndServe(); err != nil {
