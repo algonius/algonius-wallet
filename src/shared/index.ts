@@ -2,6 +2,9 @@
  * Shared utilities and types for the extension
  */
 
+// Export transaction overlay types
+export * from './types';
+
 export enum McpErrorCode {
   HOST_NOT_FOUND = 1001,
   CONNECTION_FAILED = 1002,

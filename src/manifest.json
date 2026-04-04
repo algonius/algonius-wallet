@@ -19,7 +19,7 @@
     "nativeMessaging",
     "https://*.dexscreener.com/*",
     "https://*.gmgn.ai/*",
-    "https://*.jupiter.ag/*",
+    "https://jup.ag/",
     "https://*.uniswap.org/*",
     "https://*.1inch.io/*",
     "http://localhost/*"
@@ -37,7 +37,7 @@
       "matches": [
         "https://*.dexscreener.com/*",
         "https://*.gmgn.ai/*",
-        "https://*.jupiter.ag/*",
+        "https://jup.ag/",
         "https://*.uniswap.org/*",
         "https://*.1inch.io/*"
       ],

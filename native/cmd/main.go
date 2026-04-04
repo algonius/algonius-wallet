@@ -150,7 +150,41 @@ func main() {
 	nm.RegisterRpcMethod("unlock_wallet", handlers.CreateUnlockWalletHandler(walletManager))
 	nm.RegisterRpcMethod("lock_wallet", handlers.CreateLockWalletHandler(walletManager))
 	nm.RegisterRpcMethod("wallet_status", handlers.CreateWalletStatusHandler(walletManager, zapLogger))
-	nm.RegisterRpcMethod("web3_request", handlers.CreateWeb3RequestHandler(walletManager, eventBroadcaster))
+	nm.RegisterRpcMethod("web3_request", handlers.CreateWeb3RequestHandler(walletManager, eventBroadcaster, nm))
+
+	// Set up event forwarding to browser extension for overlay management
+	// Subscribe to transaction completion events and forward to browser extension
+	go func() {
+		completionEvents := eventBroadcaster.Subscribe("browser_extension_overlay")
+		for event := range completionEvents {
+			// Forward transaction completion events to browser extension for overlay hiding
+			// REQ-EXT-012: Update or remove overlay when AI Agent completes decision
+			if event.Type == "transaction_confirmed" || event.Type == "transaction_rejected" {
+				completionData := map[string]interface{}{
+					"transaction_hash": event.Data["transaction_hash"],
+					"status": event.Type, // "transaction_confirmed" or "transaction_rejected"
+					"timestamp": event.Timestamp.Format(time.RFC3339),
+				}
+				
+				// Marshal data to json.RawMessage
+				dataBytes, err := json.Marshal(completionData)
+				if err != nil {
+					zapLogger.Warn("Failed to marshal overlay completion data", zap.Error(err))
+					continue
+				}
+				
+				overlayCompletionMessage := messaging.Message{
+					Type: "ALGONIUS_TRANSACTION_COMPLETED",
+					Data: dataBytes,
+				}
+				
+				// Send completion message to browser extension (best effort)
+				if err := nm.SendMessage(overlayCompletionMessage); err != nil {
+					zapLogger.Warn("Failed to send overlay completion message to browser extension", zap.Error(err))
+				}
+			}
+		}
+	}()
 
 	// Register init, status, shutdown RPC methods
 	nm.RegisterRpcMethod("init", func(req messaging.RpcRequest) (messaging.RpcResponse, error) {

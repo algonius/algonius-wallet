@@ -34,7 +34,7 @@ type TransactionParams struct {
 }
 
 // CreateWeb3RequestHandler creates a handler for web3 requests from web pages
-func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.EventBroadcaster) messaging.RpcHandler {
+func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.EventBroadcaster, nativeMessaging *messaging.NativeMessaging) messaging.RpcHandler {
 	return func(req messaging.RpcRequest) (messaging.RpcResponse, error) {
 		var params Web3RequestParams
 		if req.Params != nil {
@@ -61,7 +61,7 @@ func CreateWeb3RequestHandler(manager wallet.IWalletManager, broadcaster *event.
 			return handleGetChainId(req.ID)
 		
 		case "eth_sendTransaction":
-			return handleSendTransaction(req.ID, params, manager, broadcaster)
+			return handleSendTransaction(req.ID, params, manager, broadcaster, nativeMessaging)
 		
 		case "personal_sign":
 			return handlePersonalSign(req.ID, params, manager, broadcaster)
@@ -125,7 +125,7 @@ func handleGetChainId(id string) (messaging.RpcResponse, error) {
 }
 
 // handleSendTransaction handles eth_sendTransaction requests from web pages
-func handleSendTransaction(id string, params Web3RequestParams, manager wallet.IWalletManager, broadcaster *event.EventBroadcaster) (messaging.RpcResponse, error) {
+func handleSendTransaction(id string, params Web3RequestParams, manager wallet.IWalletManager, broadcaster *event.EventBroadcaster, nativeMessaging *messaging.NativeMessaging) (messaging.RpcResponse, error) {
 	// Parse transaction parameters
 	var txParams []TransactionParams
 	paramsBytes, err := json.Marshal(params.Params)
@@ -209,6 +209,51 @@ func handleSendTransaction(id string, params Web3RequestParams, manager wallet.I
 			},
 		}
 		broadcaster.Broadcast(event)
+	}
+
+	// Send overlay message to browser extension for transaction confirmation overlay
+	// REQ-EXT-009: Display overlay when DApp transaction is pending AI Agent approval
+	if nativeMessaging != nil {
+		overlayData := map[string]interface{}{
+			"transaction": map[string]interface{}{
+				"hash":                      pendingTx.Hash,
+				"chain":                     pendingTx.Chain,
+				"from":                      pendingTx.From,
+				"to":                        pendingTx.To,
+				"amount":                    pendingTx.Amount,
+				"token":                     pendingTx.Token,
+				"type":                      pendingTx.Type,
+				"status":                    pendingTx.Status,
+				"confirmations":             pendingTx.Confirmations,
+				"required_confirmations":    pendingTx.RequiredConfirmations,
+				"gas_fee":                   pendingTx.GasFee,
+				"priority":                  pendingTx.Priority,
+				"estimated_confirmation_time": pendingTx.EstimatedConfirmationTime,
+				"submitted_at":              pendingTx.SubmittedAt.Format(time.RFC3339),
+				"last_checked":              pendingTx.LastChecked.Format(time.RFC3339),
+			},
+		}
+		
+		// Marshal data to json.RawMessage
+		dataBytes, err := json.Marshal(overlayData)
+		if err != nil {
+			// Log error but don't fail the transaction
+			return messaging.RpcResponse{
+				ID:     id,
+				Result: json.RawMessage(fmt.Sprintf(`"%s"`, pendingTx.Hash)),
+			}, nil
+		}
+		
+		overlayMessage := messaging.Message{
+			Type: "ALGONIUS_PENDING_TRANSACTION",
+			Data: dataBytes,
+		}
+		
+		// Send message to browser extension (best effort, don't fail transaction if this fails)
+		if err := nativeMessaging.SendMessage(overlayMessage); err != nil {
+			// Log error but don't fail the transaction
+			// Note: We should add proper logging here, but for now just continue
+		}
 	}
 
 	// Return the pending transaction hash
@@ -344,24 +389,44 @@ func handlePersonalSign(id string, params Web3RequestParams, manager wallet.IWal
 
 // handleSolanaRequestAccounts handles solana_requestAccounts requests
 func handleSolanaRequestAccounts(id string, manager wallet.IWalletManager) (messaging.RpcResponse, error) {
-	// Get available accounts from wallet manager
-	ctx := context.Background()
-	accounts, err := manager.GetAccounts(ctx)
-	if err != nil {
+	// Get current wallet status from wallet manager
+	currentWallet := manager.GetCurrentWallet()
+	if currentWallet == nil {
+		// Return empty array if no wallet
+		resultBytes, _ := json.Marshal([]string{})
 		return messaging.RpcResponse{
-			ID: id,
-			Error: &messaging.ErrorInfo{
-				Code:    -32000,
-				Message: "Failed to get accounts: " + err.Error(),
-			},
+			ID:     id,
+			Result: resultBytes,
 		}, nil
 	}
-
-	resultBytes, _ := json.Marshal(accounts)
-	result := resultBytes
+	
+	// For Solana, we need to return the public key
+	// In Solana, the address and public key are the same (base58 encoded ed25519 public key)
+	// But we should return the public key field specifically for clarity
+	if currentWallet.PublicKey != "" {
+		publicKeys := []string{currentWallet.PublicKey}
+		resultBytes, _ := json.Marshal(publicKeys)
+		return messaging.RpcResponse{
+			ID:     id,
+			Result: resultBytes,
+		}, nil
+	}
+	
+	// Fallback to address if public key is not available
+	if currentWallet.Address != "" {
+		publicKeys := []string{currentWallet.Address}
+		resultBytes, _ := json.Marshal(publicKeys)
+		return messaging.RpcResponse{
+			ID:     id,
+			Result: resultBytes,
+		}, nil
+	}
+	
+	// Return empty array if no valid account info
+	resultBytes, _ := json.Marshal([]string{})
 	return messaging.RpcResponse{
 		ID:     id,
-		Result: result,
+		Result: resultBytes,
 	}, nil
 }
 
@@ -512,16 +577,24 @@ func handleSolanaSignMessage(id string, params Web3RequestParams, manager wallet
 	}
 	
 	// Ensure the public key is in the correct format for Solana (base58)
-	solanaAddress := address
-	// If the address starts with "0x", it might be stored in Ethereum format
-	// We need to make sure it's properly formatted for Solana
-	if strings.HasPrefix(address, "0x") {
-		// Just remove the "0x" prefix for now - in a real implementation we'd need proper conversion
-		solanaAddress = address[2:]
+	// For Solana, we should return the actual public key, not just the address
+	// Get the current wallet to access the public key
+	currentWallet := manager.GetCurrentWallet()
+	publicKey := address // fallback to address
+	
+	if currentWallet != nil && currentWallet.PublicKey != "" {
+		publicKey = currentWallet.PublicKey
+	} else {
+		// If the address starts with "0x", it might be stored in Ethereum format
+		// We need to make sure it's properly formatted for Solana
+		if strings.HasPrefix(address, "0x") {
+			// Just remove the "0x" prefix for now - in a real implementation we'd need proper conversion
+			publicKey = address[2:]
+		}
 	}
 	
 	// Make sure the public key is valid base58
-	if _, err := base58.Decode(solanaAddress); err != nil {
+	if _, err := base58.Decode(publicKey); err != nil {
 		// If it's not valid base58, we have an issue with our address format
 		return messaging.RpcResponse{
 			ID: id,
@@ -541,7 +614,7 @@ func handleSolanaSignMessage(id string, params Web3RequestParams, manager wallet
 	// Format the result properly
 	resultData := map[string]interface{}{
 		"signature": signatureArray, // Return as array of integers for proper serialization
-		"publicKey": solanaAddress,
+		"publicKey": publicKey,      // Return the actual public key for Solana
 	}
 	
 	result, _ := json.Marshal(resultData)
